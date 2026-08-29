@@ -76,3 +76,18 @@ func TestLogin_UserTidakDitemukan(t *testing.T) {
 		t.Errorf("harusnya ErrInvalidCredentials, dapat: %v", err)
 	}
 }
+
+// Kasus 4: error database selain user-not-found → diteruskan apa adanya.
+func TestLogin_ErrorDatabase(t *testing.T) {
+	repo := &mockUserRepo{user: nil, err: errors.New("koneksi database putus")}
+	svc := NewAuthService(repo, "rahasia-test")
+
+	_, err := svc.Login(context.Background(), "kasir@orderflow.com", "password123")
+
+	if err == nil {
+		t.Error("harusnya error database diteruskan, bukan nil")
+	}
+	if errors.Is(err, ErrInvalidCredentials) {
+		t.Error("error database jangan disamarkan jadi ErrInvalidCredentials")
+	}
+}
