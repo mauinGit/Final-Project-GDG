@@ -31,7 +31,6 @@ type LoginResult struct {
 func (s *AuthService) Login(ctx context.Context, email, password string) (*LoginResult, error) {
 	user, err := s.userRepo.FindByEmail(ctx, email)
 	if err != nil {
-		// Baik user tidak ada maupun error lain, jangan bocorkan detail ke penyerang.
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return nil, ErrInvalidCredentials
 		}

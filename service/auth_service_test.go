@@ -33,7 +33,7 @@ func buatUserAsli(t *testing.T, password string) *models.User {
 	}
 }
 
-// Kasus 1: login dengan kredensial benar → dapat token & role.
+// login dengan kredensial benar → dapat token & role.
 func TestLogin_Berhasil(t *testing.T) {
 	user := buatUserAsli(t, "password123")
 	repo := &mockUserRepo{user: user, err: nil}
@@ -52,7 +52,7 @@ func TestLogin_Berhasil(t *testing.T) {
 	}
 }
 
-// Kasus 2: password salah → ditolak dengan ErrInvalidCredentials.
+// password salah → ditolak dengan ErrInvalidCredentials.
 func TestLogin_PasswordSalah(t *testing.T) {
 	user := buatUserAsli(t, "password123")
 	repo := &mockUserRepo{user: user, err: nil}
@@ -65,7 +65,7 @@ func TestLogin_PasswordSalah(t *testing.T) {
 	}
 }
 
-// Kasus 3: email tidak terdaftar → ditolak dengan ErrInvalidCredentials.
+// email tidak terdaftar → ditolak dengan ErrInvalidCredentials.
 func TestLogin_UserTidakDitemukan(t *testing.T) {
 	repo := &mockUserRepo{user: nil, err: repository.ErrUserNotFound}
 	svc := NewAuthService(repo, "rahasia-test")
@@ -77,7 +77,7 @@ func TestLogin_UserTidakDitemukan(t *testing.T) {
 	}
 }
 
-// Kasus 4: error database selain user-not-found → diteruskan apa adanya.
+// error database selain user-not-found → diteruskan apa adanya.
 func TestLogin_ErrorDatabase(t *testing.T) {
 	repo := &mockUserRepo{user: nil, err: errors.New("koneksi database putus")}
 	svc := NewAuthService(repo, "rahasia-test")

@@ -9,29 +9,23 @@ import (
 	"FinalProjectBE/models"
 )
 
-// ErrOrderNotFound dikembalikan bila pesanan tidak ada.
 var ErrOrderNotFound = errors.New("pesanan tidak ditemukan")
 
-// OrderRepository menangani semua akses data ke tabel orders & order_items.
 type OrderRepository struct {
 	db *pgxpool.Pool
 }
 
-// NewOrderRepository membuat instance OrderRepository.
 func NewOrderRepository(db *pgxpool.Pool) *OrderRepository {
 	return &OrderRepository{db: db}
-}
+} 
 
-// Create menyimpan pesanan baru beserta itemnya dalam satu transaksi.
-// Transaksi memastikan: kalau salah satu item gagal, semua dibatalkan (data konsisten).
 func (r *OrderRepository) Create(ctx context.Context, order *models.Order) (*models.Order, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx) // aman: kalau sudah Commit, Rollback tidak berpengaruh
+	defer tx.Rollback(ctx)
 
-	// Simpan header pesanan.
 	queryOrder := `INSERT INTO orders (queue_number, customer_name, status)
 	               VALUES ($1, $2, $3)
 	               RETURNING id, created_at, updated_at`
@@ -41,7 +35,6 @@ func (r *OrderRepository) Create(ctx context.Context, order *models.Order) (*mod
 		return nil, err
 	}
 
-	// Simpan tiap item, kaitkan ke pesanan yang baru dibuat.
 	queryItem := `INSERT INTO order_items (order_id, menu_name, quantity, note)
 	              VALUES ($1, $2, $3, $4)
 	              RETURNING id`
@@ -61,10 +54,7 @@ func (r *OrderRepository) Create(ctx context.Context, order *models.Order) (*mod
 	return order, nil
 }
 
-// FindAll mengambil daftar pesanan beserta itemnya TANPA N+1 query.
-// Strateginya: 1 query untuk semua order, 1 query untuk semua item, lalu digabung.
 func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]models.Order, error) {
-	// Query 1: ambil semua order (opsional difilter status).
 	queryOrders := `SELECT id, queue_number, customer_name, status, created_at, updated_at
 	                FROM orders`
 	args := []interface{}{}
@@ -81,7 +71,7 @@ func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]m
 	defer rows.Close()
 
 	orders := []models.Order{}
-	orderIndex := map[int64]int{} // untuk menemukan posisi order saat menempel item
+	orderIndex := map[int64]int{}
 	orderIDs := []int64{}
 
 	for rows.Next() {
@@ -99,12 +89,10 @@ func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]m
 		return nil, err
 	}
 
-	// Tidak ada order → langsung kembalikan.
 	if len(orderIDs) == 0 {
 		return orders, nil
 	}
 
-	// Query 2: ambil SEMUA item milik order-order di atas sekaligus (kunci anti-N+1).
 	queryItems := `SELECT id, order_id, menu_name, quantity, COALESCE(note, '')
 	               FROM order_items
 	               WHERE order_id = ANY($1)`
@@ -130,8 +118,6 @@ func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]m
 	return orders, nil
 }
 
-
-// FindByID mengambil satu pesanan beserta itemnya berdasarkan id.
 func (r *OrderRepository) FindByID(ctx context.Context, id int64) (*models.Order, error) {
 	queryOrder := `SELECT id, queue_number, customer_name, status, created_at, updated_at
 	               FROM orders WHERE id = $1`
@@ -148,7 +134,6 @@ func (r *OrderRepository) FindByID(ctx context.Context, id int64) (*models.Order
 		return nil, err
 	}
 
-	// Ambil item milik pesanan ini.
 	queryItems := `SELECT id, order_id, menu_name, quantity, COALESCE(note, '')
 	               FROM order_items WHERE order_id = $1`
 	rows, err := r.db.Query(ctx, queryItems, id)
@@ -171,7 +156,6 @@ func (r *OrderRepository) FindByID(ctx context.Context, id int64) (*models.Order
 	return &o, nil
 }
 
-// UpdateStatus mengubah status pesanan dan memperbarui updated_at.
 func (r *OrderRepository) UpdateStatus(ctx context.Context, id int64, status string) (*models.Order, error) {
 	query := `UPDATE orders
 	          SET status = $1, updated_at = now()
@@ -192,7 +176,6 @@ func (r *OrderRepository) UpdateStatus(ctx context.Context, id int64, status str
 	return &o, nil
 }
 
-// CountOrdersToday menghitung jumlah pesanan hari ini, untuk menentukan nomor urut berikutnya.
 func (r *OrderRepository) CountOrdersToday(ctx context.Context) (int, error) {
 	query := `SELECT COUNT(*) FROM orders WHERE created_at::date = CURRENT_DATE`
 

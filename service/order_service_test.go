@@ -7,8 +7,6 @@ import (
 
 	"FinalProjectBE/models"
 )
-
-// mockOrderStore adalah repository palsu untuk menguji OrderService tanpa database.
 type mockOrderStore struct {
 	countToday   int
 	countErr     error
@@ -21,7 +19,6 @@ type mockOrderStore struct {
 	findAllResp  []models.Order
 	findAllErr   error
 
-	// merekam argumen yang dipakai, untuk verifikasi.
 	lastUpdateStatus string
 }
 
@@ -29,7 +26,7 @@ func (m *mockOrderStore) Create(ctx context.Context, order *models.Order) (*mode
 	if m.createErr != nil {
 		return nil, m.createErr
 	}
-	order.ID = 99 // simulasikan id hasil insert
+	order.ID = 99
 	m.created = order
 	return order, nil
 }
@@ -57,7 +54,7 @@ func (m *mockOrderStore) CountOrdersToday(ctx context.Context) (int, error) {
 	return m.countToday, m.countErr
 }
 
-// ---------- CreateOrder ----------
+// Create Order 
 
 func TestCreateOrder_Berhasil(t *testing.T) {
 	repo := &mockOrderStore{countToday: 4}
@@ -127,7 +124,7 @@ func TestCreateOrder_CountError(t *testing.T) {
 	}
 }
 
-// ---------- ListOrders ----------
+// List Orders 
 
 func TestListOrders_FilterValid(t *testing.T) {
 	repo := &mockOrderStore{findAllResp: []models.Order{{ID: 1}}}
@@ -164,7 +161,7 @@ func TestListOrders_TanpaFilter(t *testing.T) {
 	}
 }
 
-// ---------- GetOrder ----------
+// Get Order 
 
 func TestGetOrder_Berhasil(t *testing.T) {
 	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 7}}
@@ -179,7 +176,7 @@ func TestGetOrder_Berhasil(t *testing.T) {
 	}
 }
 
-// ---------- UpdateStatus ----------
+// Update Status 
 
 func TestUpdateStatus_PendingKeCooking(t *testing.T) {
 	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusPending}}
@@ -208,7 +205,6 @@ func TestUpdateStatus_TransisiIlegal(t *testing.T) {
 	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusPending}}
 	svc := NewOrderService(repo)
 
-	// pending langsung ke done tidak diperbolehkan.
 	_, err := svc.UpdateStatus(context.Background(), 1, models.StatusDone)
 	if !errors.Is(err, ErrIllegalTransition) {
 		t.Errorf("harusnya ErrIllegalTransition, dapat: %v", err)
@@ -244,7 +240,7 @@ func TestUpdateStatus_DoneTidakBisaBerubah(t *testing.T) {
 	}
 }
 
-// ---------- CancelOrder ----------
+// Cancel Order 
 
 func TestCancelOrder_Berhasil(t *testing.T) {
 	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusPending}}
