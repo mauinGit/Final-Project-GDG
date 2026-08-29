@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
 	"FinalProjectBE/config"
 	"FinalProjectBE/database"
+	"FinalProjectBE/repository"
 )
 
 func main() {
@@ -20,6 +22,10 @@ func main() {
 	}
 	defer pool.Close()
 
-	fmt.Println("OrderFlow API — koneksi database berhasil ✅")
-	fmt.Println("Database:", cfg.DBName, "di", cfg.DBHost+":"+cfg.DBPort)
+	userRepo := repository.NewUserRepository(pool)
+	if err := database.SeedUsers(context.Background(), userRepo, cfg); err != nil {
+		log.Fatalf("gagal seeding user: %v", err)
+	}
+
+	fmt.Println("OrderFlow API — database & seeding siap ✅")
 }
