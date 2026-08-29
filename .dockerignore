@@ -1,0 +1,13 @@
+# Keep the Docker build context small & clean
+.git/
+.gitignore
+bin/
+tmp/
+*.md
+.env
+.env.local
+*.env
+.idea/
+.vscode/
+coverage.out
+coverage.html
