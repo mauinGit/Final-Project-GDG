@@ -4,18 +4,23 @@ import (
 	"context"
 	"errors"
 
+	"FinalProjectBE/models"
 	"FinalProjectBE/repository"
 	"FinalProjectBE/utils"
 )
 
 var ErrInvalidCredentials = errors.New("email atau password salah")
 
+type UserFinder interface {
+	FindByEmail(ctx context.Context, email string) (*models.User, error)
+}
+
 type AuthService struct {
-	userRepo  *repository.UserRepository
+	userRepo  UserFinder
 	jwtSecret string
 }
 
-func NewAuthService(userRepo *repository.UserRepository, jwtSecret string) *AuthService {
+func NewAuthService(userRepo UserFinder, jwtSecret string) *AuthService {
 	return &AuthService{userRepo: userRepo, jwtSecret: jwtSecret}
 }
 
