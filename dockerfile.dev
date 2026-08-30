@@ -1,0 +1,17 @@
+# Dockerfile untuk development: lebih sederhana, memuat seluruh toolchain Go
+# sehingga mudah menjalankan & mengubah kode tanpa build multi-stage.
+FROM golang:1.25-alpine
+
+WORKDIR /app
+
+# Salin dependency dan unduh.
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Salin seluruh kode.
+COPY . .
+
+EXPOSE 8080
+
+# Jalankan langsung dari source (tanpa build binary terpisah).
+CMD ["go", "run", "./main.go"]

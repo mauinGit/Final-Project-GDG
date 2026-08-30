@@ -25,6 +25,10 @@ func main() {
 	}
 	defer pool.Close()
 
+	if err := database.RunMigrations(context.Background(), pool, "migrations/001_init_schema.sql"); err != nil {
+		log.Fatalf("gagal migrasi: %v", err)
+	}
+
 	userRepo := repository.NewUserRepository(pool)
 	orderRepo := repository.NewOrderRepository(pool)
 
