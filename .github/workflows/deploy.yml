@@ -1,0 +1,46 @@
+name: Build and Push to GHCR
+
+# Jalankan workflow tiap ada push ke branch utama.
+on:
+  push:
+    branches:
+      - main
+      - master
+
+# Izin yang dibutuhkan untuk push image ke GHCR.
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Ambil kode dari repository.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Login ke GitHub Container Registry.
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 3. Siapkan nama image (huruf kecil semua, sesuai syarat GHCR).
+      - name: Prepare image name
+        id: prep
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      # 4. Build image dari Dockerfile produksi lalu push ke GHCR.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.prep.outputs.image }}:latest
+            ${{ steps.prep.outputs.image }}:${{ github.sha }}
