@@ -9,14 +9,16 @@ import (
 	"FinalProjectBE/models"
 	"FinalProjectBE/repository"
 	"FinalProjectBE/service"
+	"FinalProjectBE/ws"
 )
 
 type OrderController struct {
 	orderService *service.OrderService
+	hub          *ws.Hub
 }
 
-func NewOrderController(orderService *service.OrderService) *OrderController {
-	return &OrderController{orderService: orderService}
+func NewOrderController(orderService *service.OrderService, hub *ws.Hub) *OrderController {
+	return &OrderController{orderService: orderService, hub: hub}
 }
 
 type orderItemRequest struct {
@@ -55,6 +57,8 @@ func (ctrl *OrderController) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	ctrl.hub.Broadcast("order_created", order)
 
 	c.JSON(http.StatusCreated, order)
 }
@@ -123,6 +127,8 @@ func (ctrl *OrderController) UpdateStatus(c *gin.Context) {
 		return
 	}
 
+	ctrl.hub.Broadcast("order_updated", order)
+
 	c.JSON(http.StatusOK, order)
 }
 
@@ -145,6 +151,8 @@ func (ctrl *OrderController) Cancel(c *gin.Context) {
 		}
 		return
 	}
+
+	ctrl.hub.Broadcast("order_updated", order)
 
 	c.JSON(http.StatusOK, order)
 }

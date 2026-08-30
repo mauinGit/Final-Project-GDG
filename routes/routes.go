@@ -4,11 +4,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"FinalProjectBE/controllers"
 	"FinalProjectBE/middleware"
+	"FinalProjectBE/ws"
 )
 
 func SetupRouter(
 	authCtrl *controllers.AuthController,
 	orderCtrl *controllers.OrderController,
+	hub *ws.Hub,
 	jwtSecret string,
 ) *gin.Engine {
 	r := gin.Default()
@@ -16,6 +18,8 @@ func SetupRouter(
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	r.GET("/ws/orders", ws.ServeWS(hub))
 
 	api := r.Group("/api")
 	{

@@ -10,6 +10,7 @@ import (
 	"FinalProjectBE/repository"
 	"FinalProjectBE/routes"
 	"FinalProjectBE/service"
+	"FinalProjectBE/ws"
 )
 
 func main() {
@@ -31,13 +32,16 @@ func main() {
 		log.Fatalf("gagal seeding user: %v", err)
 	}
 
+	hub := ws.NewHub()
+	go hub.Run()
+
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	orderService := service.NewOrderService(orderRepo)
 
 	authCtrl := controllers.NewAuthController(authService)
-	orderCtrl := controllers.NewOrderController(orderService)
+	orderCtrl := controllers.NewOrderController(orderService, hub)
 
-	r := routes.SetupRouter(authCtrl, orderCtrl, cfg.JWTSecret)
+	r := routes.SetupRouter(authCtrl, orderCtrl, hub, cfg.JWTSecret)
 
 	log.Printf("server berjalan di http://localhost:%s", cfg.AppPort)
 	if err := r.Run(":" + cfg.AppPort); err != nil {
