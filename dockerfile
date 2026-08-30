@@ -25,6 +25,7 @@ RUN apk --no-cache add ca-certificates
 # Salin HANYA binary dari tahap build, plus folder migrasi.
 COPY --from=builder /app/server .
 COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/frontend ./frontend
 
 # Port yang diekspos aplikasi.
 EXPOSE 8080

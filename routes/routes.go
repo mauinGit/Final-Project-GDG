@@ -15,6 +15,9 @@ func SetupRouter(
 ) *gin.Engine {
 	r := gin.Default()
 
+	r.StaticFile("/", "./frontend/index.html")
+	r.Static("/frontend", "./frontend")
+
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
