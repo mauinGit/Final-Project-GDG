@@ -10,6 +10,7 @@ import (
 func SetupRouter(
 	authCtrl *controllers.AuthController,
 	orderCtrl *controllers.OrderController,
+	healthCtrl *controllers.HealthController,
 	hub *ws.Hub,
 	jwtSecret string,
 ) *gin.Engine {
@@ -18,9 +19,8 @@ func SetupRouter(
 	r.StaticFile("/", "./frontend/index.html")
 	r.Static("/frontend", "./frontend")
 
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
+	r.GET("/healthz", healthCtrl.Healthz)
+	r.GET("/readyz", healthCtrl.Readyz)
 
 	r.GET("/ws/orders", ws.ServeWS(hub))
 

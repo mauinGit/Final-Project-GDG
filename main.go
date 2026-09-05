@@ -44,8 +44,9 @@ func main() {
 
 	authCtrl := controllers.NewAuthController(authService)
 	orderCtrl := controllers.NewOrderController(orderService, hub)
+	healthCtrl := controllers.NewHealthController(pool)
 
-	r := routes.SetupRouter(authCtrl, orderCtrl, hub, cfg.JWTSecret)
+	r := routes.SetupRouter(authCtrl, orderCtrl, healthCtrl, hub, cfg.JWTSecret)
 
 	log.Printf("server berjalan di http://localhost:%s", cfg.AppPort)
 	if err := r.Run(":" + cfg.AppPort); err != nil {
