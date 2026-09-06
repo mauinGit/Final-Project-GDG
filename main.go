@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,6 +18,7 @@ import (
 	"FinalProjectBE/routes"
 	"FinalProjectBE/service"
 	"FinalProjectBE/ws"
+	"FinalProjectBE/logger"
 )
 
 func main() {
@@ -24,6 +26,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("gagal memuat konfigurasi: %v", err)
 	}
+	appLog := logger.New(cfg.AppEnv)
+	slog.SetDefault(appLog)
 
 	pool, err := database.Connect(cfg)
 	if err != nil {
@@ -52,7 +56,7 @@ func main() {
 	orderCtrl := controllers.NewOrderController(orderService, hub)
 	healthCtrl := controllers.NewHealthController(pool)
 
-	r := routes.SetupRouter(authCtrl, orderCtrl, healthCtrl, hub, cfg.JWTSecret)
+		r := routes.SetupRouter(authCtrl, orderCtrl, healthCtrl, hub, cfg.JWTSecret, appLog)
 
 		srv := &http.Server{
 		Addr:    ":" + cfg.AppPort,
@@ -63,21 +67,21 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Printf("server berjalan di http://localhost:%s", cfg.AppPort)
+		appLog.Info("server berjalan", "port", cfg.AppPort, "env", cfg.AppEnv)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("gagal menjalankan server: %v", err)
 		}
 	}()
 
 	<-ctx.Done()
-	log.Println("sinyal shutdown diterima, menutup server...")
+	appLog.Info("sinyal shutdown diterima, menutup server...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("shutdown paksa: %v", err)
+		appLog.Error("shutdown paksa", "error", err)
 	}
 
-	log.Println("server berhenti dengan rapi")
+	appLog.Info("server berhenti dengan rapi")
 }

@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
 	"FinalProjectBE/controllers"
 	"FinalProjectBE/middleware"
@@ -13,9 +15,13 @@ func SetupRouter(
 	healthCtrl *controllers.HealthController,
 	hub *ws.Hub,
 	jwtSecret string,
+	log *slog.Logger,
 ) *gin.Engine {
-	r := gin.Default()
+	r := gin.New()
+
 	r.Use(middleware.RequestID())
+	r.Use(middleware.Logger(log))
+	r.Use(middleware.Recovery(log))
 
 	r.StaticFile("/", "./frontend/index.html")
 	r.Static("/frontend", "./frontend")
