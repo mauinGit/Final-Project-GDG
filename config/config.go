@@ -3,6 +3,9 @@ package config
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -40,12 +43,62 @@ func Load() (*Config, error) {
 		SeedPemasakPassword: os.Getenv("SEED_PEMASAK_PASSWORD"),
 	}
 
-	if cfg.DBUser == "" || cfg.DBPassword == "" || cfg.DBName == "" ||
-		cfg.DBHost == "" || cfg.DBPort == "" {
-		return nil, fmt.Errorf("konfigurasi database tidak lengkap, cek file .env")
+		if cfg.AppPort == "" {
+		cfg.AppPort = "8080"
+	}
+
+	if err := cfg.validate(); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil
+}
+
+func (c *Config) validate() error {
+	required := map[string]string{
+		"DB_USER":               c.DBUser,
+		"DB_PASSWORD":           c.DBPassword,
+		"DB_NAME":               c.DBName,
+		"DB_HOST":               c.DBHost,
+		"DB_PORT":               c.DBPort,
+		"JWT_SECRET":            c.JWTSecret,
+		"SEED_KASIR_EMAIL":      c.SeedKasirEmail,
+		"SEED_KASIR_PASSWORD":   c.SeedKasirPassword,
+		"SEED_PEMASAK_EMAIL":    c.SeedPemasakEmail,
+		"SEED_PEMASAK_PASSWORD": c.SeedPemasakPassword,
+	}
+
+	var missing []string
+	for name, value := range required {
+		if strings.TrimSpace(value) == "" {
+			missing = append(missing, name)
+		}
+	}
+	sort.Strings(missing)
+
+	if len(missing) > 0 {
+		return fmt.Errorf(
+			"environment variable wajib belum diisi: %s (cek file .env)",
+			strings.Join(missing, ", "),
+		)
+	}
+
+	if _, err := strconv.Atoi(c.DBPort); err != nil {
+		return fmt.Errorf("DB_PORT harus berupa angka, dapat %q", c.DBPort)
+	}
+
+	if _, err := strconv.Atoi(c.AppPort); err != nil {
+		return fmt.Errorf("APP_PORT harus berupa angka, dapat %q", c.AppPort)
+	}
+
+	if len(c.JWTSecret) < 32 {
+		return fmt.Errorf(
+			"JWT_SECRET terlalu pendek (%d karakter), minimal 32 karakter",
+			len(c.JWTSecret),
+		)
+	}
+
+	return nil
 }
 
 func (c *Config) DatabaseURL() string {
