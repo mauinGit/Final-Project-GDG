@@ -26,22 +26,29 @@ func (r *OrderRepository) Create(ctx context.Context, order *models.Order) (*mod
 	}
 	defer tx.Rollback(ctx)
 
-	queryOrder := `INSERT INTO orders (queue_number, customer_name, status)
-	               VALUES ($1, $2, $3)
+	queryOrder := `INSERT INTO orders
+	                 (queue_number, customer_name, status, subtotal, discount, total,
+	                  payment_method, amount_paid, change_amount)
+	               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	               RETURNING id, created_at, updated_at`
-	err = tx.QueryRow(ctx, queryOrder, order.QueueNumber, order.CustomerName, order.Status).
+	err = tx.QueryRow(ctx, queryOrder,
+		order.QueueNumber, order.CustomerName, order.Status,
+		order.Subtotal, order.Discount, order.Total,
+		order.PaymentMethod, order.AmountPaid, order.ChangeAmount).
 		Scan(&order.ID, &order.CreatedAt, &order.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 
-	queryItem := `INSERT INTO order_items (order_id, menu_name, quantity, note)
-	              VALUES ($1, $2, $3, $4)
+	queryItem := `INSERT INTO order_items
+	                (order_id, menu_item_id, menu_name, quantity, note, price_at_order)
+	              VALUES ($1, $2, $3, $4, $5, $6)
 	              RETURNING id`
 	for i := range order.Items {
 		order.Items[i].OrderID = order.ID
 		err = tx.QueryRow(ctx, queryItem,
-			order.ID, order.Items[i].MenuName, order.Items[i].Quantity, order.Items[i].Note).
+			order.ID, order.Items[i].MenuItemID, order.Items[i].MenuName,
+			order.Items[i].Quantity, order.Items[i].Note, order.Items[i].PriceAtOrder).
 			Scan(&order.Items[i].ID)
 		if err != nil {
 			return nil, err
@@ -55,7 +62,9 @@ func (r *OrderRepository) Create(ctx context.Context, order *models.Order) (*mod
 }
 
 func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]models.Order, error) {
-	queryOrders := `SELECT id, queue_number, customer_name, status, created_at, updated_at
+	queryOrders := `SELECT id, queue_number, customer_name, status,
+	                       subtotal, discount, total, payment_method, amount_paid, change_amount,
+	                       created_at, updated_at
 	                FROM orders`
 	args := []interface{}{}
 	if statusFilter != "" {
@@ -77,8 +86,9 @@ func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]m
 	for rows.Next() {
 		var o models.Order
 		o.Items = []models.OrderItem{}
-		if err := rows.Scan(&o.ID, &o.QueueNumber, &o.CustomerName,
-			&o.Status, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.QueueNumber, &o.CustomerName, &o.Status,
+			&o.Subtotal, &o.Discount, &o.Total, &o.PaymentMethod, &o.AmountPaid, &o.ChangeAmount,
+			&o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, err
 		}
 		orderIndex[o.ID] = len(orders)
@@ -93,7 +103,8 @@ func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]m
 		return orders, nil
 	}
 
-	queryItems := `SELECT id, order_id, menu_name, quantity, COALESCE(note, '')
+	queryItems := `SELECT id, order_id, COALESCE(menu_item_id, 0), menu_name, quantity,
+	                      COALESCE(note, ''), price_at_order
 	               FROM order_items
 	               WHERE order_id = ANY($1)`
 	itemRows, err := r.db.Query(ctx, queryItems, orderIDs)
@@ -104,7 +115,8 @@ func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]m
 
 	for itemRows.Next() {
 		var it models.OrderItem
-		if err := itemRows.Scan(&it.ID, &it.OrderID, &it.MenuName, &it.Quantity, &it.Note); err != nil {
+		if err := itemRows.Scan(&it.ID, &it.OrderID, &it.MenuItemID, &it.MenuName,
+		&it.Quantity, &it.Note, &it.PriceAtOrder); err != nil {
 			return nil, err
 		}
 		// Tempel item ke order yang sesuai.
@@ -119,13 +131,17 @@ func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]m
 }
 
 func (r *OrderRepository) FindByID(ctx context.Context, id int64) (*models.Order, error) {
-	queryOrder := `SELECT id, queue_number, customer_name, status, created_at, updated_at
-	               FROM orders WHERE id = $1`
+	queryOrder := `SELECT id, queue_number, customer_name, status,
+	                  subtotal, discount, total, payment_method, amount_paid, change_amount,
+	                  created_at, updated_at
+	           FROM orders WHERE id = $1`
 
 	var o models.Order
 	o.Items = []models.OrderItem{}
 	err := r.db.QueryRow(ctx, queryOrder, id).Scan(
-		&o.ID, &o.QueueNumber, &o.CustomerName, &o.Status, &o.CreatedAt, &o.UpdatedAt,
+		&o.ID, &o.QueueNumber, &o.CustomerName, &o.Status,
+		&o.Subtotal, &o.Discount, &o.Total, &o.PaymentMethod, &o.AmountPaid, &o.ChangeAmount,
+		&o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -134,7 +150,8 @@ func (r *OrderRepository) FindByID(ctx context.Context, id int64) (*models.Order
 		return nil, err
 	}
 
-	queryItems := `SELECT id, order_id, menu_name, quantity, COALESCE(note, '')
+	queryItems := `SELECT id, order_id, COALESCE(menu_item_id, 0), menu_name, quantity,
+	                      COALESCE(note, ''), price_at_order
 	               FROM order_items WHERE order_id = $1`
 	rows, err := r.db.Query(ctx, queryItems, id)
 	if err != nil {
@@ -144,7 +161,8 @@ func (r *OrderRepository) FindByID(ctx context.Context, id int64) (*models.Order
 
 	for rows.Next() {
 		var it models.OrderItem
-		if err := rows.Scan(&it.ID, &it.OrderID, &it.MenuName, &it.Quantity, &it.Note); err != nil {
+		if err := rows.Scan(&it.ID, &it.OrderID, &it.MenuItemID, &it.MenuName,
+			&it.Quantity, &it.Note, &it.PriceAtOrder); err != nil {
 			return nil, err
 		}
 		o.Items = append(o.Items, it)
@@ -160,12 +178,16 @@ func (r *OrderRepository) UpdateStatus(ctx context.Context, id int64, status str
 	query := `UPDATE orders
 	          SET status = $1, updated_at = now()
 	          WHERE id = $2
-	          RETURNING id, queue_number, customer_name, status, created_at, updated_at`
+	          RETURNING id, queue_number, customer_name, status,
+	                    subtotal, discount, total, payment_method, amount_paid, change_amount,
+	                    created_at, updated_at`
 
 	var o models.Order
 	o.Items = []models.OrderItem{}
 	err := r.db.QueryRow(ctx, query, status, id).Scan(
-		&o.ID, &o.QueueNumber, &o.CustomerName, &o.Status, &o.CreatedAt, &o.UpdatedAt,
+		&o.ID, &o.QueueNumber, &o.CustomerName, &o.Status,
+		&o.Subtotal, &o.Discount, &o.Total, &o.PaymentMethod, &o.AmountPaid, &o.ChangeAmount,
+		&o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -184,4 +206,24 @@ func (r *OrderRepository) CountOrdersToday(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func (r *OrderRepository) FindMenuPrices(ctx context.Context, ids []int64) (map[int64]models.MenuItem, error) {
+	query := `SELECT id, name, price FROM menu_items WHERE id = ANY($1)`
+
+	rows, err := r.db.Query(ctx, query, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[int64]models.MenuItem)
+	for rows.Next() {
+		var m models.MenuItem
+		if err := rows.Scan(&m.ID, &m.Name, &m.Price); err != nil {
+			return nil, err
+		}
+		result[m.ID] = m
+	}
+	return result, rows.Err()
 }
