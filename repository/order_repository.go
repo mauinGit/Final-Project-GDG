@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -61,21 +62,48 @@ func (r *OrderRepository) Create(ctx context.Context, order *models.Order) (*mod
 	return order, nil
 }
 
-func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]models.Order, error) {
+type OrderFilter struct {
+	Status string
+	Date   string 
+	Page   int
+	Limit  int
+}
+
+func (r *OrderRepository) FindAll(ctx context.Context, f OrderFilter) ([]models.Order, int, error) {
+	where := " WHERE 1=1"
+	args := []interface{}{}
+	n := 1
+
+	if f.Status != "" {
+		where += fmt.Sprintf(" AND status = $%d", n)
+		args = append(args, f.Status)
+		n++
+	}
+	if f.Date != "" {
+		where += fmt.Sprintf(" AND created_at::date = $%d::date", n)
+		args = append(args, f.Date)
+		n++
+	}
+
+	// Hitung total baris dulu, untuk menyusun meta.
+	var totalItems int
+	countQuery := `SELECT COUNT(*) FROM orders` + where
+	if err := r.db.QueryRow(ctx, countQuery, args...).Scan(&totalItems); err != nil {
+		return nil, 0, err
+	}
+
+	offset := (f.Page - 1) * f.Limit
+
 	queryOrders := `SELECT id, queue_number, customer_name, status,
 	                       subtotal, discount, total, payment_method, amount_paid, change_amount,
 	                       created_at, updated_at
-	                FROM orders`
-	args := []interface{}{}
-	if statusFilter != "" {
-		queryOrders += ` WHERE status = $1`
-		args = append(args, statusFilter)
-	}
-	queryOrders += ` ORDER BY created_at ASC`
+	                FROM orders` + where +
+		fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", n, n+1)
+	args = append(args, f.Limit, offset)
 
 	rows, err := r.db.Query(ctx, queryOrders, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -89,18 +117,18 @@ func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]m
 		if err := rows.Scan(&o.ID, &o.QueueNumber, &o.CustomerName, &o.Status,
 			&o.Subtotal, &o.Discount, &o.Total, &o.PaymentMethod, &o.AmountPaid, &o.ChangeAmount,
 			&o.CreatedAt, &o.UpdatedAt); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		orderIndex[o.ID] = len(orders)
 		orders = append(orders, o)
 		orderIDs = append(orderIDs, o.ID)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if len(orderIDs) == 0 {
-		return orders, nil
+		return orders, totalItems, nil
 	}
 
 	queryItems := `SELECT id, order_id, COALESCE(menu_item_id, 0), menu_name, quantity,
@@ -109,25 +137,24 @@ func (r *OrderRepository) FindAll(ctx context.Context, statusFilter string) ([]m
 	               WHERE order_id = ANY($1)`
 	itemRows, err := r.db.Query(ctx, queryItems, orderIDs)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer itemRows.Close()
 
 	for itemRows.Next() {
 		var it models.OrderItem
 		if err := itemRows.Scan(&it.ID, &it.OrderID, &it.MenuItemID, &it.MenuName,
-		&it.Quantity, &it.Note, &it.PriceAtOrder); err != nil {
-			return nil, err
+			&it.Quantity, &it.Note, &it.PriceAtOrder); err != nil {
+			return nil, 0, err
 		}
-		// Tempel item ke order yang sesuai.
 		idx := orderIndex[it.OrderID]
 		orders[idx].Items = append(orders[idx].Items, it)
 	}
 	if err := itemRows.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return orders, nil
+	return orders, totalItems, nil
 }
 
 func (r *OrderRepository) FindByID(ctx context.Context, id int64) (*models.Order, error) {

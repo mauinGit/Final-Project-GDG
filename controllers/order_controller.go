@@ -73,19 +73,28 @@ func (ctrl *OrderController) Create(c *gin.Context) {
 }
 
 func (ctrl *OrderController) List(c *gin.Context) {
-	statusFilter := c.Query("status")
+	page, _ := strconv.Atoi(c.Query("page"))
+	limit, _ := strconv.Atoi(c.Query("limit"))
 
-	orders, err := ctrl.orderService.ListOrders(c.Request.Context(), statusFilter)
+	result, err := ctrl.orderService.ListOrders(c.Request.Context(), repository.OrderFilter{
+		Status: c.Query("status"),
+		Date:   c.Query("date"),
+		Page:   page,
+		Limit:  limit,
+	})
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidStatus) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "status filter tidak valid"})
-			return
+		switch {
+		case errors.Is(err, service.ErrInvalidStatus):
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "status filter tidak valid"})
+		case errors.Is(err, service.ErrInvalidDateFilter):
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "terjadi kesalahan server"})
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "terjadi kesalahan server"})
 		return
 	}
 
-	c.JSON(http.StatusOK, orders)
+	c.JSON(http.StatusOK, result)
 }
 
 func (ctrl *OrderController) GetByID(c *gin.Context) {

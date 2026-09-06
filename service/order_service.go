@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"FinalProjectBE/models"
+	"FinalProjectBE/repository"
 )
 
 var (
@@ -16,7 +18,7 @@ var (
 	ErrInvalidStatus     = errors.New("status tidak dikenal")
 	ErrIllegalTransition = errors.New("perubahan status tidak diperbolehkan")
 	ErrNotEditable       = errors.New("pesanan hanya bisa diubah saat masih pending")
-
+	ErrInvalidDateFilter = errors.New("format tanggal harus YYYY-MM-DD")
 	ErrMenuNotExist       = errors.New("menu yang dipesan tidak ditemukan")
 	ErrInvalidPayment     = errors.New("metode pembayaran harus 'cash' atau 'non_cash'")
 	ErrDiscountNegative   = errors.New("diskon tidak boleh negatif")
@@ -26,7 +28,7 @@ var (
 
 type OrderStore interface {
 	Create(ctx context.Context, order *models.Order) (*models.Order, error)
-	FindAll(ctx context.Context, statusFilter string) ([]models.Order, error)
+	FindAll(ctx context.Context, f repository.OrderFilter) ([]models.Order, int, error)
 	FindByID(ctx context.Context, id int64) (*models.Order, error)
 	UpdateStatus(ctx context.Context, id int64, status string) (*models.Order, error)
 	CountOrdersToday(ctx context.Context) (int, error)
@@ -136,11 +138,47 @@ func (s *OrderService) CreateOrder(ctx context.Context, in CreateOrderInput) (*m
 	return s.repo.Create(ctx, order)
 }
 
-func (s *OrderService) ListOrders(ctx context.Context, statusFilter string) ([]models.Order, error) {
-	if statusFilter != "" && !isValidStatus(statusFilter) {
+func (s *OrderService) ListOrders(ctx context.Context, f repository.OrderFilter) (*models.OrderListResult, error) {
+	if f.Status != "" && !isValidStatus(f.Status) {
 		return nil, ErrInvalidStatus
 	}
-	return s.repo.FindAll(ctx, statusFilter)
+
+	if f.Date != "" {
+		if _, err := time.Parse("2006-01-02", f.Date); err != nil {
+			return nil, ErrInvalidDateFilter
+		}
+	}
+
+	// Normalisasi halaman & batas.
+	if f.Page < 1 {
+		f.Page = 1
+	}
+	if f.Limit < 1 {
+		f.Limit = 10
+	}
+	if f.Limit > 100 {
+		f.Limit = 100
+	}
+
+	orders, totalItems, err := s.repo.FindAll(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := 0
+	if totalItems > 0 {
+		totalPages = (totalItems + f.Limit - 1) / f.Limit
+	}
+
+	return &models.OrderListResult{
+		Data: orders,
+		Meta: models.PageMeta{
+			Page:       f.Page,
+			Limit:      f.Limit,
+			TotalItems: totalItems,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (s *OrderService) GetOrder(ctx context.Context, id int64) (*models.Order, error) {

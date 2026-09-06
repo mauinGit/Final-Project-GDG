@@ -5,8 +5,10 @@ import (
 	"errors"
 	"testing"
 
+	"FinalProjectBE/repository"
 	"FinalProjectBE/models"
 )
+
 type mockOrderStore struct {
 	countToday   int
 	countErr     error
@@ -18,10 +20,10 @@ type mockOrderStore struct {
 	updateErr    error
 	findAllResp  []models.Order
 	findAllErr   error
-
+	findAllTotal int
+	lastFilter   repository.OrderFilter
 	menuPrices    map[int64]models.MenuItem
 	menuPricesErr error
-
 	lastUpdateStatus string
 }
 
@@ -34,8 +36,9 @@ func (m *mockOrderStore) Create(ctx context.Context, order *models.Order) (*mode
 	return order, nil
 }
 
-func (m *mockOrderStore) FindAll(ctx context.Context, statusFilter string) ([]models.Order, error) {
-	return m.findAllResp, m.findAllErr
+func (m *mockOrderStore) FindAll(ctx context.Context, f repository.OrderFilter) ([]models.Order, int, error) {
+	m.lastFilter = f
+	return m.findAllResp, m.findAllTotal, m.findAllErr
 }
 
 func (m *mockOrderStore) FindByID(ctx context.Context, id int64) (*models.Order, error) {
@@ -70,8 +73,8 @@ func (m *mockOrderStore) FindMenuPrices(ctx context.Context, ids []int64) (map[i
 // Create Order 
 
 func TestCreateOrder_Berhasil(t *testing.T) {
-	repo := &mockOrderStore{countToday: 4, menuPrices: menuContoh()}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{countToday: 4, menuPrices: menuContoh()}
+	svc := NewOrderService(repoMock)
 
 	order, err := svc.CreateOrder(context.Background(), CreateOrderInput{
 		CustomerName: "Budi",
@@ -105,8 +108,8 @@ func TestCreateOrder_Berhasil(t *testing.T) {
 }
 
 func TestCreateOrder_SnapshotHargaDariMenu(t *testing.T) {
-	repo := &mockOrderStore{menuPrices: menuContoh()}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{menuPrices: menuContoh()}
+	svc := NewOrderService(repoMock)
 
 	// Kasir mengirim harga & nama palsu — harus diabaikan.
 	order, err := svc.CreateOrder(context.Background(), CreateOrderInput{
@@ -129,8 +132,8 @@ func TestCreateOrder_SnapshotHargaDariMenu(t *testing.T) {
 }
 
 func TestCreateOrder_NonCashTidakAdaKembalian(t *testing.T) {
-	repo := &mockOrderStore{menuPrices: menuContoh()}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{menuPrices: menuContoh()}
+	svc := NewOrderService(repoMock)
 
 	order, err := svc.CreateOrder(context.Background(), CreateOrderInput{
 		CustomerName:  "Budi",
@@ -149,8 +152,8 @@ func TestCreateOrder_NonCashTidakAdaKembalian(t *testing.T) {
 }
 
 func TestCreateOrder_UangKurang(t *testing.T) {
-	repo := &mockOrderStore{menuPrices: menuContoh()}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{menuPrices: menuContoh()}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.CreateOrder(context.Background(), CreateOrderInput{
 		CustomerName:  "Budi",
@@ -164,8 +167,8 @@ func TestCreateOrder_UangKurang(t *testing.T) {
 }
 
 func TestCreateOrder_DiskonMelebihiSubtotal(t *testing.T) {
-	repo := &mockOrderStore{menuPrices: menuContoh()}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{menuPrices: menuContoh()}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.CreateOrder(context.Background(), CreateOrderInput{
 		CustomerName:  "Budi",
@@ -179,8 +182,8 @@ func TestCreateOrder_DiskonMelebihiSubtotal(t *testing.T) {
 }
 
 func TestCreateOrder_DiskonNegatif(t *testing.T) {
-	repo := &mockOrderStore{menuPrices: menuContoh()}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{menuPrices: menuContoh()}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.CreateOrder(context.Background(), CreateOrderInput{
 		CustomerName:  "Budi",
@@ -194,8 +197,8 @@ func TestCreateOrder_DiskonNegatif(t *testing.T) {
 }
 
 func TestCreateOrder_MenuTidakDitemukan(t *testing.T) {
-	repo := &mockOrderStore{menuPrices: menuContoh()}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{menuPrices: menuContoh()}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.CreateOrder(context.Background(), CreateOrderInput{
 		CustomerName:  "Budi",
@@ -208,8 +211,8 @@ func TestCreateOrder_MenuTidakDitemukan(t *testing.T) {
 }
 
 func TestCreateOrder_MetodeBayarNgawur(t *testing.T) {
-	repo := &mockOrderStore{menuPrices: menuContoh()}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{menuPrices: menuContoh()}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.CreateOrder(context.Background(), CreateOrderInput{
 		CustomerName:  "Budi",
@@ -223,8 +226,8 @@ func TestCreateOrder_MetodeBayarNgawur(t *testing.T) {
 
 
 func TestCreateOrder_DiskonMengurangiTotal(t *testing.T) {
-	repo := &mockOrderStore{menuPrices: menuContoh()}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{menuPrices: menuContoh()}
+	svc := NewOrderService(repoMock)
 
 	order, err := svc.CreateOrder(context.Background(), CreateOrderInput{
 		CustomerName:  "Budi",
@@ -285,11 +288,11 @@ func TestCreateOrder_QuantityNol(t *testing.T) {
 }
 
 func TestCreateOrder_CountError(t *testing.T) {
-	repo := &mockOrderStore{
+	repoMock := &mockOrderStore{
 		countErr:   errors.New("db error"),
 		menuPrices: menuContoh(),
 	}
-	svc := NewOrderService(repo)
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.CreateOrder(context.Background(), CreateOrderInput{
 		CustomerName:  "Budi",
@@ -304,45 +307,111 @@ func TestCreateOrder_CountError(t *testing.T) {
 // List Orders 
 
 func TestListOrders_FilterValid(t *testing.T) {
-	repo := &mockOrderStore{findAllResp: []models.Order{{ID: 1}}}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{
+		findAllResp:  []models.Order{{ID: 1}},
+		findAllTotal: 1,
+	}
+	svc := NewOrderService(repoMock)
 
-	orders, err := svc.ListOrders(context.Background(), models.StatusPending)
+	result, err := svc.ListOrders(context.Background(), repository.OrderFilter{
+		Status: models.StatusPending,
+	})
 	if err != nil {
 		t.Fatalf("harusnya berhasil, dapat: %v", err)
 	}
-	if len(orders) != 1 {
-		t.Errorf("mau 1 order, dapat %d", len(orders))
+	if len(result.Data) != 1 {
+		t.Errorf("mau 1 order, dapat %d", len(result.Data))
 	}
 }
 
 func TestListOrders_FilterTidakValid(t *testing.T) {
 	svc := NewOrderService(&mockOrderStore{})
 
-	_, err := svc.ListOrders(context.Background(), "ngasal")
+	_, err := svc.ListOrders(context.Background(), repository.OrderFilter{Status: "ngasal"})
 	if !errors.Is(err, ErrInvalidStatus) {
 		t.Errorf("harusnya ErrInvalidStatus, dapat: %v", err)
 	}
 }
 
 func TestListOrders_TanpaFilter(t *testing.T) {
-	repo := &mockOrderStore{findAllResp: []models.Order{{ID: 1}, {ID: 2}}}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{
+		findAllResp:  []models.Order{{ID: 1}, {ID: 2}},
+		findAllTotal: 2,
+	}
+	svc := NewOrderService(repoMock)
 
-	orders, err := svc.ListOrders(context.Background(), "")
+	result, err := svc.ListOrders(context.Background(), repository.OrderFilter{})
 	if err != nil {
 		t.Fatalf("harusnya berhasil, dapat: %v", err)
 	}
-	if len(orders) != 2 {
-		t.Errorf("mau 2 order, dapat %d", len(orders))
+	if len(result.Data) != 2 {
+		t.Errorf("mau 2 order, dapat %d", len(result.Data))
+	}
+}
+
+func TestListOrders_TanggalTidakValid(t *testing.T) {
+	svc := NewOrderService(&mockOrderStore{})
+
+	_, err := svc.ListOrders(context.Background(), repository.OrderFilter{Date: "06-09-2026"})
+	if !errors.Is(err, ErrInvalidDateFilter) {
+		t.Errorf("harusnya ErrInvalidDateFilter, dapat: %v", err)
+	}
+}
+
+func TestListOrders_DefaultHalamanDanLimit(t *testing.T) {
+	repoMock := &mockOrderStore{findAllTotal: 0}
+	svc := NewOrderService(repoMock)
+
+	result, err := svc.ListOrders(context.Background(), repository.OrderFilter{})
+	if err != nil {
+		t.Fatalf("harusnya berhasil, dapat: %v", err)
+	}
+	if repoMock.lastFilter.Page != 1 {
+		t.Errorf("page default harus 1, dapat %d", repoMock.lastFilter.Page)
+	}
+	if repoMock.lastFilter.Limit != 10 {
+		t.Errorf("limit default harus 10, dapat %d", repoMock.lastFilter.Limit)
+	}
+	if result.Meta.TotalPages != 0 {
+		t.Errorf("tanpa data, total halaman harus 0, dapat %d", result.Meta.TotalPages)
+	}
+}
+
+func TestListOrders_LimitDibatasi(t *testing.T) {
+	repoMock := &mockOrderStore{}
+	svc := NewOrderService(repoMock)
+
+	_, err := svc.ListOrders(context.Background(), repository.OrderFilter{Limit: 5000})
+	if err != nil {
+		t.Fatalf("harusnya berhasil, dapat: %v", err)
+	}
+	if repoMock.lastFilter.Limit != 100 {
+		t.Errorf("limit harus dibatasi 100, dapat %d", repoMock.lastFilter.Limit)
+	}
+}
+
+func TestListOrders_HitungTotalHalaman(t *testing.T) {
+	repoMock := &mockOrderStore{findAllTotal: 25}
+	svc := NewOrderService(repoMock)
+
+	result, err := svc.ListOrders(context.Background(), repository.OrderFilter{Limit: 10})
+	if err != nil {
+		t.Fatalf("harusnya berhasil, dapat: %v", err)
+	}
+	// 25 item dengan limit 10 → 3 halaman (pembulatan ke atas)
+	if result.Meta.TotalPages != 3 {
+		t.Errorf("total halaman salah: mau 3, dapat %d", result.Meta.TotalPages)
+	}
+	if result.Meta.TotalItems != 25 {
+		t.Errorf("total item salah: mau 25, dapat %d", result.Meta.TotalItems)
 	}
 }
 
 // Get Order 
 
 func TestGetOrder_Berhasil(t *testing.T) {
-	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 7}}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{findByIDResp: &models.Order{ID: 7}}
+	svc := NewOrderService(repoMock)
 
 	order, err := svc.GetOrder(context.Background(), 7)
 	if err != nil {
@@ -356,21 +425,21 @@ func TestGetOrder_Berhasil(t *testing.T) {
 // Update Status 
 
 func TestUpdateStatus_PendingKeCooking(t *testing.T) {
-	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusPending}}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusPending}}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.UpdateStatus(context.Background(), 1, models.StatusCooking)
 	if err != nil {
 		t.Fatalf("pending→cooking harusnya boleh, dapat: %v", err)
 	}
-	if repo.lastUpdateStatus != models.StatusCooking {
-		t.Errorf("status yang disimpan salah: %s", repo.lastUpdateStatus)
+	if repoMock.lastUpdateStatus != models.StatusCooking {
+		t.Errorf("status yang disimpan salah: %s", repoMock.lastUpdateStatus)
 	}
 }
 
 func TestUpdateStatus_CookingKeDone(t *testing.T) {
-	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusCooking}}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusCooking}}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.UpdateStatus(context.Background(), 1, models.StatusDone)
 	if err != nil {
@@ -379,8 +448,8 @@ func TestUpdateStatus_CookingKeDone(t *testing.T) {
 }
 
 func TestUpdateStatus_TransisiIlegal(t *testing.T) {
-	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusPending}}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusPending}}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.UpdateStatus(context.Background(), 1, models.StatusDone)
 	if !errors.Is(err, ErrIllegalTransition) {
@@ -398,8 +467,8 @@ func TestUpdateStatus_StatusTidakValid(t *testing.T) {
 }
 
 func TestUpdateStatus_OrderTidakDitemukan(t *testing.T) {
-	repo := &mockOrderStore{findByIDErr: errors.New("tidak ada")}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{findByIDErr: errors.New("tidak ada")}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.UpdateStatus(context.Background(), 999, models.StatusCooking)
 	if err == nil {
@@ -408,8 +477,8 @@ func TestUpdateStatus_OrderTidakDitemukan(t *testing.T) {
 }
 
 func TestUpdateStatus_DoneTidakBisaBerubah(t *testing.T) {
-	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusDone}}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusDone}}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.UpdateStatus(context.Background(), 1, models.StatusCooking)
 	if !errors.Is(err, ErrIllegalTransition) {
@@ -420,21 +489,21 @@ func TestUpdateStatus_DoneTidakBisaBerubah(t *testing.T) {
 // Cancel Order 
 
 func TestCancelOrder_Berhasil(t *testing.T) {
-	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusPending}}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusPending}}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.CancelOrder(context.Background(), 1)
 	if err != nil {
 		t.Fatalf("batal saat pending harusnya boleh, dapat: %v", err)
 	}
-	if repo.lastUpdateStatus != models.StatusCancelled {
-		t.Errorf("status harus cancelled, dapat: %s", repo.lastUpdateStatus)
+	if repoMock.lastUpdateStatus != models.StatusCancelled {
+		t.Errorf("status harus cancelled, dapat: %s", repoMock.lastUpdateStatus)
 	}
 }
 
 func TestCancelOrder_SudahCooking(t *testing.T) {
-	repo := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusCooking}}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{findByIDResp: &models.Order{ID: 1, Status: models.StatusCooking}}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.CancelOrder(context.Background(), 1)
 	if !errors.Is(err, ErrNotEditable) {
@@ -443,8 +512,8 @@ func TestCancelOrder_SudahCooking(t *testing.T) {
 }
 
 func TestCancelOrder_OrderTidakDitemukan(t *testing.T) {
-	repo := &mockOrderStore{findByIDErr: errors.New("tidak ada")}
-	svc := NewOrderService(repo)
+	repoMock := &mockOrderStore{findByIDErr: errors.New("tidak ada")}
+	svc := NewOrderService(repoMock)
 
 	_, err := svc.CancelOrder(context.Background(), 999)
 	if err == nil {
