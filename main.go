@@ -2,7 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"FinalProjectBE/config"
 	"FinalProjectBE/controllers"
@@ -48,8 +54,30 @@ func main() {
 
 	r := routes.SetupRouter(authCtrl, orderCtrl, healthCtrl, hub, cfg.JWTSecret)
 
-	log.Printf("server berjalan di http://localhost:%s", cfg.AppPort)
-	if err := r.Run(":" + cfg.AppPort); err != nil {
-		log.Fatalf("gagal menjalankan server: %v", err)
+		srv := &http.Server{
+		Addr:    ":" + cfg.AppPort,
+		Handler: r,
 	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		log.Printf("server berjalan di http://localhost:%s", cfg.AppPort)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("gagal menjalankan server: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("sinyal shutdown diterima, menutup server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("shutdown paksa: %v", err)
+	}
+
+	log.Println("server berhenti dengan rapi")
 }
