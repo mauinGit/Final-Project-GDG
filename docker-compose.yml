@@ -3,6 +3,8 @@ services:
     image: postgres:16-alpine
     container_name: orderflow_db_prod
     restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}

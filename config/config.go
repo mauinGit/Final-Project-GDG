@@ -17,6 +17,7 @@ type Config struct {
 	DBHost     string
 	DBPort     string
 	AppPort    string
+	AppEnv     string
 	JWTSecret  string
 
 	SeedKasirEmail      string
@@ -35,6 +36,7 @@ func Load() (*Config, error) {
 		DBHost:     os.Getenv("DB_HOST"),
 		DBPort:     os.Getenv("DB_PORT"),
 		AppPort:    os.Getenv("APP_PORT"),
+		AppEnv:     os.Getenv("APP_ENV"),
 		JWTSecret:  os.Getenv("JWT_SECRET"),
 
 		SeedKasirEmail:      os.Getenv("SEED_KASIR_EMAIL"),
@@ -43,8 +45,12 @@ func Load() (*Config, error) {
 		SeedPemasakPassword: os.Getenv("SEED_PEMASAK_PASSWORD"),
 	}
 
-		if cfg.AppPort == "" {
+	if cfg.AppPort == "" {
 		cfg.AppPort = "8080"
+	}
+
+	if cfg.AppEnv == "" {
+		cfg.AppEnv = "development"
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -98,6 +104,13 @@ func (c *Config) validate() error {
 		)
 	}
 
+	if c.AppEnv != "development" && c.AppEnv != "production" {
+		return fmt.Errorf(
+			"APP_ENV harus 'development' atau 'production', dapat %q",
+			c.AppEnv,
+		)
+	}
+	
 	return nil
 }
 

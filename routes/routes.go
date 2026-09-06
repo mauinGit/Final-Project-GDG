@@ -15,6 +15,7 @@ func SetupRouter(
 	jwtSecret string,
 ) *gin.Engine {
 	r := gin.Default()
+	r.Use(middleware.RequestID())
 
 	r.StaticFile("/", "./frontend/index.html")
 	r.Static("/frontend", "./frontend")
