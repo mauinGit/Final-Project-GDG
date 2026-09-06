@@ -30,14 +30,20 @@ services:
       DB_NAME: ${DB_NAME}
       DB_HOST: db
       DB_PORT: 5432
-      APP_PORT: ${APP_PORT}
+      APP_PORT: 8080
       JWT_SECRET: ${JWT_SECRET}
       SEED_KASIR_EMAIL: ${SEED_KASIR_EMAIL}
       SEED_KASIR_PASSWORD: ${SEED_KASIR_PASSWORD}
       SEED_PEMASAK_EMAIL: ${SEED_PEMASAK_EMAIL}
       SEED_PEMASAK_PASSWORD: ${SEED_PEMASAK_PASSWORD}
     ports:
-      - "${APP_PORT}:8080"
+      - "${APP_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
 volumes:
   orderflow_pgdata_prod:
