@@ -43,6 +43,7 @@ func main() {
 	orderRepo := repository.NewOrderRepository(pool)
 	menuRepo := repository.NewMenuRepository(pool)
 	reportRepo := repository.NewReportRepository(pool)
+	refreshRepo := repository.NewRefreshTokenRepository(pool)
 
 	if err := database.SeedUsers(context.Background(), userRepo, cfg); err != nil {
 		log.Fatalf("gagal seeding user: %v", err)
@@ -51,7 +52,7 @@ func main() {
 	hub := ws.NewHub()
 	go hub.Run()
 
-	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
+	authService := service.NewAuthService(userRepo, refreshRepo, cfg.JWTSecret)
 	orderService := service.NewOrderService(orderRepo)
 	menuService := service.NewMenuService(menuRepo)
 	reportService := service.NewReportService(reportRepo)
@@ -71,6 +72,27 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// Bersihkan refresh token kedaluwarsa secara berkala.
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				n, err := refreshRepo.DeleteExpired(context.Background())
+				if err != nil {
+					appLog.Error("gagal membersihkan refresh token", "error", err)
+					continue
+				}
+				if n > 0 {
+					appLog.Info("refresh token kedaluwarsa dibersihkan", "jumlah", n)
+				}
+			}
+		}
+	}()
 
 	go func() {
 		appLog.Info("server berjalan", "port", cfg.AppPort, "env", cfg.AppEnv)

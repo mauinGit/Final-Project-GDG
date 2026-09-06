@@ -13,12 +13,14 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+const AccessTokenTTL = 15 * time.Minute
+
 func GenerateToken(userID int64, role, secret string) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(12 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

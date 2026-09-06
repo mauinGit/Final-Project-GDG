@@ -36,6 +36,23 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models
 	return &u, nil
 }
 
+func (r *UserRepository) FindByID(ctx context.Context, id int64) (*models.User, error) {
+	query := `SELECT id, email, password_hash, role, created_at
+	          FROM users WHERE id = $1`
+
+	var u models.User
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &u, nil
+}
+
 func (r *UserRepository) Create(ctx context.Context, email, passwordHash, role string) (*models.User, error) {
 	query := `INSERT INTO users (email, password_hash, role)
 	          VALUES ($1, $2, $3)

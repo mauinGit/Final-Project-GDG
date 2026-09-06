@@ -46,10 +46,13 @@ func SetupRouter(
 	{
 		loginLimiter := middleware.NewRateLimiter(rate.Limit(0.2), 5)
 		api.POST("/auth/login", loginLimiter.Middleware(), authCtrl.Login)
+		api.POST("/auth/refresh", loginLimiter.Middleware(), authCtrl.Refresh)
 
 		protected := api.Group("")
 		protected.Use(middleware.AuthRequired(jwtSecret))
 		{
+			protected.GET("/auth/me", authCtrl.Me)
+			protected.POST("/auth/logout", authCtrl.Logout)
 			protected.GET("/orders", orderCtrl.List)
 			protected.GET("/orders/:id", orderCtrl.GetByID)
 
