@@ -1,243 +1,806 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OrderFlow</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #f4f4f5; color: #18181b; padding: 20px; }
-    .container { max-width: 900px; margin: 0 auto; }
-    h1 { margin-bottom: 16px; }
-    .card { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-    input, button, select { font-size: 15px; padding: 10px; border-radius: 8px; border: 1px solid #d4d4d8; }
-    button { background: #2563eb; color: #fff; border: none; cursor: pointer; }
-    button:hover { background: #1d4ed8; }
-    button.secondary { background: #e4e4e7; color: #18181b; }
-    label { display: block; margin: 8px 0 4px; font-size: 14px; font-weight: 600; }
-    .hidden { display: none; }
-    .item-row { display: flex; gap: 8px; margin-bottom: 8px; }
-    .item-row input { flex: 1; }
-    .order { border-left: 4px solid #eab308; padding: 12px; margin-bottom: 10px; background: #fafafa; border-radius: 6px; }
-    .order.cooking { border-color: #f97316; }
-    .order.done { border-color: #22c55e; }
-    .order.cancelled { border-color: #ef4444; opacity: .6; }
-    .queue { font-size: 22px; font-weight: 700; }
-    .status-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #e4e4e7; }
-    .muted { color: #71717a; font-size: 13px; }
-    .error { color: #dc2626; font-size: 14px; margin-top: 8px; }
-    .row-actions { margin-top: 8px; display: flex; gap: 6px; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OrderFlow</title>
+<style>
+  :root{
+    --ink:#1B1F1A;
+    --ink-soft:#5A6157;
+    --paper:#EFF1EC;
+    --surface:#FFFFFF;
+    --line:#D5DAD0;
+    --wait:#E0A32E;
+    --cook:#D2542A;
+    --done:#3E7A4E;
+    --void:#9AA095;
+    --focus:#2F6F4E;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+
+  html{-webkit-text-size-adjust:100%}
+
+  body{
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.5;
+    font-size:16px;
+  }
+
+  button,input,select{font:inherit;color:inherit}
+
+  button{cursor:pointer;border:none;background:none}
+
+  button:focus-visible,input:focus-visible{
+    outline:2px solid var(--focus);
+    outline-offset:2px;
+  }
+
+  .num{font-variant-numeric:tabular-nums}
+
+  /* ---------- bar atas ---------- */
+
+  .bar{
+    display:flex;align-items:baseline;gap:16px;
+    padding:14px 20px;
+    background:var(--ink);color:var(--paper);
+  }
+  .bar h1{font-size:19px;font-weight:800;letter-spacing:-.02em}
+  .bar .who{font-size:14px;color:#A8B0A4;margin-left:auto}
+  .bar button{
+    color:var(--paper);font-size:14px;
+    border-bottom:1px solid #4A5147;padding-bottom:1px;
+  }
+  .bar button:hover{border-color:var(--paper)}
+
+  /* ---------- login ---------- */
+
+  .gate{
+    min-height:100vh;display:grid;place-items:center;padding:24px;
+  }
+  .gate form{
+    width:100%;max-width:330px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    padding:30px;
+  }
+  .gate h1{font-size:27px;font-weight:800;letter-spacing:-.03em}
+  .gate p{color:var(--ink-soft);font-size:14px;margin:4px 0 24px}
+
+  label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:5px}
+
+  input,select{
+    width:100%;padding:9px 11px;
+    border:1px solid var(--line);
+    background:var(--surface);
+  }
+
+  .field{margin-bottom:14px}
+
+  .go{
+    width:100%;padding:11px;
+    background:var(--ink);color:var(--paper);
+    font-weight:600;
+  }
+  .go:hover{background:#000}
+  .go[disabled]{background:var(--void);cursor:not-allowed}
+
+  .warn{
+    color:var(--cook);font-size:14px;
+    margin-top:12px;min-height:21px;
+  }
+
+  .hint{
+    margin-top:20px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:13px;color:var(--ink-soft);
+  }
+
+  /* ---------- kerangka ---------- */
+
+  main{padding:20px;max-width:1180px;margin:0 auto}
+
+  .split{display:grid;gap:20px;grid-template-columns:1fr 340px;align-items:start}
+
+  @media (max-width:860px){.split{grid-template-columns:1fr}}
+
+  section{background:var(--surface);border:1px solid var(--line)}
+
+  .head{
+    display:flex;align-items:center;gap:10px;
+    padding:12px 16px;border-bottom:1px solid var(--line);
+  }
+  .head h2{font-size:15px;font-weight:700}
+  .head .side{margin-left:auto;font-size:13px;color:var(--ink-soft)}
+
+  .body{padding:16px}
+
+  /* ---------- menu ---------- */
+
+  .menu-grid{
+    display:grid;gap:1px;background:var(--line);
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  }
+  .menu-grid button{
+    background:var(--surface);padding:12px;text-align:left;
+    display:flex;flex-direction:column;gap:3px;min-height:78px;
+  }
+  .menu-grid button:hover{background:#F3F6F1}
+  .menu-grid button:active{background:#E7EDE4}
+  .menu-grid .nm{font-weight:600;font-size:14px;line-height:1.3}
+  .menu-grid .pr{font-size:13px;color:var(--ink-soft);margin-top:auto}
+
+  /* ---------- struk ---------- */
+
+  .lines{border-bottom:1px solid var(--line);margin-bottom:14px}
+
+  .line{
+    display:grid;grid-template-columns:26px 1fr auto;
+    gap:8px;align-items:start;padding:7px 0;
+    border-top:1px dotted var(--line);
+  }
+  .line:first-child{border-top:none}
+  .line .q{font-weight:700;font-size:14px}
+  .line .n{font-size:14px;line-height:1.35}
+  .line .s{font-size:14px}
+  .line .x{
+    grid-column:2/4;justify-self:start;
+    font-size:12px;color:var(--cook);
+  }
+
+  .empty{
+    padding:26px 0;text-align:center;
+    color:var(--ink-soft);font-size:14px;
+  }
+
+  .sum{display:flex;justify-content:space-between;font-size:14px;padding:3px 0}
+  .sum.total{
+    font-size:19px;font-weight:800;
+    border-top:1px solid var(--ink);margin-top:8px;padding-top:8px;
+  }
+  .sum.change{color:var(--done);font-weight:600}
+  .sum.short{color:var(--cook);font-weight:600}
+
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+  /* ---------- antrean ---------- */
+
+  .queue{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+
+  .tile{background:var(--surface);border:1px solid var(--line);display:flex}
+
+  .tile .flag{width:7px;flex:none}
+  .tile.pending   .flag{background:var(--wait)}
+  .tile.cooking   .flag{background:var(--cook)}
+  .tile.done      .flag{background:var(--done)}
+  .tile.cancelled .flag{background:var(--void)}
+  .tile.cancelled{opacity:.55}
+
+  .tile .in{padding:12px 14px;flex:1;min-width:0}
+
+  .tile .top{display:flex;align-items:baseline;gap:8px}
+  .tile .no{font-size:31px;font-weight:800;letter-spacing:-.04em;line-height:1}
+  .tile .st{font-size:12px;color:var(--ink-soft);margin-left:auto}
+  .tile .cust{font-weight:600;font-size:14px;margin-top:2px}
+  .tile ul{list-style:none;margin:7px 0;font-size:13px;color:var(--ink-soft)}
+  .tile li{padding:1px 0}
+  .tile .memo{color:var(--cook)}
+  .tile .pay{font-size:13px;padding-top:7px;border-top:1px dotted var(--line)}
+
+  .act{
+    margin-top:9px;padding:7px 13px;
+    background:var(--ink);color:var(--paper);
+    font-size:13px;font-weight:600;
+  }
+  .act.ghost{background:none;color:var(--ink-soft);border:1px solid var(--line)}
+  .act.ghost:hover{color:var(--cook);border-color:var(--cook)}
+
+  /* ---------- laporan ---------- */
+
+  .stats{display:grid;gap:1px;background:var(--line);grid-template-columns:repeat(auto-fit,minmax(118px,1fr))}
+  .stat{background:var(--surface);padding:11px 13px}
+  .stat .k{font-size:12px;color:var(--ink-soft)}
+  .stat .v{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:1px}
+
+  .top-list{margin-top:14px;font-size:14px}
+  .top-list div{display:flex;justify-content:space-between;padding:5px 0;border-top:1px dotted var(--line)}
+
+  .toast{
+    position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+    background:var(--ink);color:var(--paper);
+    padding:11px 18px;font-size:14px;max-width:90vw;
+  }
+
+  .hidden{display:none !important}
+</style>
 </head>
 <body>
-  <div class="container">
+
+<!-- ============ LOGIN ============ -->
+<div class="gate" id="gate">
+  <form onsubmit="masuk(event)">
     <h1>OrderFlow</h1>
+    <p>Kasir dan dapur, satu antrean.</p>
 
-    <!-- LOGIN -->
-    <div id="loginView" class="card">
-      <h2>Masuk</h2>
-      <label>Email</label>
-      <input id="email" type="email" placeholder="kasir@orderflow.com" style="width:100%" />
-      <label>Password</label>
-      <input id="password" type="password" placeholder="password123" style="width:100%" />
-      <br /><br />
-      <button onclick="login()">Login</button>
-      <div id="loginError" class="error"></div>
+    <div class="field">
+      <label for="em">Email</label>
+      <input id="em" type="email" autocomplete="username" required />
+    </div>
+    <div class="field">
+      <label for="pw">Kata sandi</label>
+      <input id="pw" type="password" autocomplete="current-password" required />
     </div>
 
-    <!-- HEADER SETELAH LOGIN -->
-    <div id="appHeader" class="card hidden">
-      <span>Login sebagai <b id="roleLabel"></b></span>
-      <button class="secondary" style="float:right" onclick="logout()">Keluar</button>
-    </div>
+    <button class="go" id="btnMasuk" type="submit">Masuk</button>
+    <div class="warn" id="warnLogin"></div>
 
-    <!-- TAMPILAN KASIR -->
-    <div id="kasirView" class="card hidden">
-      <h2>Buat Pesanan</h2>
-      <label>Nama Pelanggan</label>
-      <input id="customerName" placeholder="Nama pelanggan" style="width:100%" />
-      <label>Item</label>
-      <div id="itemsContainer">
-        <div class="item-row">
-          <input placeholder="Menu" class="menu" />
-          <input placeholder="Qty" class="qty" type="number" value="1" style="max-width:80px" />
-          <input placeholder="Catatan" class="note" />
-        </div>
-      </div>
-      <button class="secondary" onclick="addItemRow()">+ Item</button>
-      <br /><br />
-      <button onclick="createOrder()">Kirim Pesanan</button>
-      <div id="kasirError" class="error"></div>
-    </div>
+    <div class="hint">Gunakan akun kasir atau koki yang dibuat saat aplikasi pertama kali dijalankan.</div>
+  </form>
+</div>
 
-    <!-- DAFTAR PESANAN (kasir & koki) -->
-    <div id="ordersView" class="card hidden">
-      <h2 id="ordersTitle">Daftar Pesanan</h2>
-      <p class="muted">Terhubung realtime — pesanan baru muncul otomatis.</p>
-      <br />
-      <div id="ordersList"></div>
-    </div>
+<!-- ============ APLIKASI ============ -->
+<div id="app" class="hidden">
+
+  <div class="bar">
+    <h1>OrderFlow</h1>
+    <span class="who">Masuk sebagai <b id="siapa"></b></span>
+    <button onclick="keluar()">Keluar</button>
   </div>
 
-  <script>
-    const API = ""; // kosong = sama host dengan halaman ini
-    let token = "";
-    let role = "";
-    let ws = null;
+  <main>
 
-    async function login() {
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
-      document.getElementById("loginError").textContent = "";
-      try {
-        const res = await fetch(API + "/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-        if (!res.ok) throw new Error("Email atau password salah");
-        const data = await res.json();
-        token = data.token;
-        role = data.role;
-        showApp();
-      } catch (e) {
-        document.getElementById("loginError").textContent = e.message;
+    <!-- ---- KASIR ---- -->
+    <div id="viewKasir" class="hidden">
+      <div class="split">
+
+        <section>
+          <div class="head">
+            <h2>Menu</h2>
+            <span class="side" id="menuInfo"></span>
+          </div>
+          <div class="menu-grid" id="menuGrid"></div>
+        </section>
+
+        <section>
+          <div class="head">
+            <h2>Pesanan</h2>
+            <button class="side" id="btnKosong" onclick="kosongkan()">Kosongkan</button>
+          </div>
+          <div class="body">
+
+            <div class="lines" id="struk"></div>
+
+            <div class="field">
+              <label for="cust">Nama pelanggan</label>
+              <input id="cust" placeholder="Budi" />
+            </div>
+
+            <div class="sum"><span>Subtotal</span><span class="num" id="vSub">Rp 0</span></div>
+
+            <div class="field" style="margin-top:10px">
+              <label for="disc">Diskon (Rp)</label>
+              <input id="disc" class="num" type="number" min="0" step="500" value="0" oninput="hitung()" />
+            </div>
+
+            <div class="sum total"><span>Total</span><span class="num" id="vTot">Rp 0</span></div>
+
+            <div class="pair" style="margin-top:14px">
+              <div>
+                <label for="bayar">Pembayaran</label>
+                <select id="bayar" onchange="hitung()">
+                  <option value="cash">Tunai</option>
+                  <option value="non_cash">Non-tunai</option>
+                </select>
+              </div>
+              <div id="wrapUang">
+                <label for="uang">Uang diterima</label>
+                <input id="uang" class="num" type="number" min="0" step="1000" value="0" oninput="hitung()" />
+              </div>
+            </div>
+
+            <div class="sum" id="vKembali" style="margin-top:10px"></div>
+
+            <button class="go" id="btnKirim" style="margin-top:14px" onclick="kirim()">Simpan pesanan</button>
+            <div class="warn" id="warnKasir"></div>
+          </div>
+        </section>
+
+      </div>
+
+      <section style="margin-top:20px">
+        <div class="head">
+          <h2>Penjualan hari ini</h2>
+          <button class="side" onclick="muatLaporan()">Muat ulang</button>
+        </div>
+        <div class="body">
+          <div class="stats" id="stats"></div>
+          <div class="top-list" id="terlaris"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ---- ANTREAN ---- -->
+    <section style="margin-top:20px">
+      <div class="head">
+        <h2 id="judulAntrean">Antrean</h2>
+        <span class="side" id="statusWS">Menyambung…</span>
+      </div>
+      <div class="body">
+        <div class="queue" id="antrean"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* ---------------- keadaan ---------------- */
+
+let token = "";
+let refreshToken = "";
+let peran = "";
+let ws = null;
+let menu = [];
+let keranjang = [];   // {id, nama, harga, qty, catatan}
+
+const rp = n => "Rp " + (n || 0).toLocaleString("id-ID");
+const el = id => document.getElementById(id);
+
+function pesan(teks){
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = teks;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+/* ---------------- pemanggilan API ----------------
+   Access token hanya berlaku 15 menit. Kalau kedaluwarsa
+   di tengah demo, tukar dulu dengan refresh token lalu
+   ulangi request aslinya sekali.                       */
+
+async function api(path, opsi = {}, ulang = true){
+  const head = Object.assign({}, opsi.headers);
+  if (opsi.body) head["Content-Type"] = "application/json";
+  if (token)     head["Authorization"] = "Bearer " + token;
+
+  const res = await fetch(path, Object.assign({}, opsi, { headers: head }));
+
+  if (res.status === 401 && ulang && refreshToken){
+    if (await tukarToken()) return api(path, opsi, false);
+  }
+  return res;
+}
+
+async function tukarToken(){
+  const res = await fetch("/api/auth/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken })
+  });
+  if (!res.ok){
+    pesan("Sesi berakhir. Masuk kembali.");
+    setTimeout(() => location.reload(), 1500);
+    return false;
+  }
+  const d = await res.json();
+  token = d.token;
+  refreshToken = d.refresh_token;
+  return true;
+}
+
+/* ---------------- masuk & keluar ---------------- */
+
+async function masuk(ev){
+  ev.preventDefault();
+  const btn = el("btnMasuk");
+  btn.disabled = true;
+  el("warnLogin").textContent = "";
+
+  try{
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: el("em").value, password: el("pw").value })
+    });
+
+    if (res.status === 429) throw new Error("Terlalu banyak percobaan. Tunggu sebentar.");
+    if (!res.ok)            throw new Error("Email atau kata sandi tidak cocok.");
+
+    const d = await res.json();
+    token        = d.token;
+    refreshToken = d.refresh_token;
+    peran        = d.role;
+    mulai();
+  }catch(e){
+    el("warnLogin").textContent = e.message;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function keluar(){
+  if (refreshToken){
+    await api("/api/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: refreshToken })
+    }).catch(() => {});
+  }
+  if (ws) { ws.onclose = null; ws.close(); }
+  location.reload();
+}
+
+function mulai(){
+  el("gate").classList.add("hidden");
+  el("app").classList.remove("hidden");
+  el("siapa").textContent = peran;
+
+  if (peran === "kasir"){
+    el("viewKasir").classList.remove("hidden");
+    el("judulAntrean").textContent = "Riwayat pesanan";
+    muatMenu();
+    muatLaporan();
+  }else{
+    el("judulAntrean").textContent = "Antrean dapur";
+  }
+
+  hitung();
+  muatAntrean();
+  sambungWS();
+}
+
+/* ---------------- menu ---------------- */
+
+async function muatMenu(){
+  const res = await api("/api/menu");
+  if (!res.ok) return;
+  menu = await res.json();
+
+  const grid = el("menuGrid");
+  grid.innerHTML = "";
+
+  if (!menu.length){
+    grid.innerHTML = '<div class="empty" style="padding:26px">Belum ada menu. Tambahkan lewat <code>POST /api/menu</code>.</div>';
+    return;
+  }
+
+  el("menuInfo").textContent = menu.length + " item";
+
+  menu.forEach(m => {
+    const b = document.createElement("button");
+    b.innerHTML = '<span class="nm"></span><span class="pr num"></span>';
+    b.querySelector(".nm").textContent = m.name;
+    b.querySelector(".pr").textContent = rp(m.price);
+    b.onclick = () => tambah(m);
+    grid.appendChild(b);
+  });
+}
+
+/* ---------------- keranjang ---------------- */
+
+function tambah(m){
+  const ada = keranjang.find(k => k.id === m.id);
+  if (ada) ada.qty++;
+  else keranjang.push({ id: m.id, nama: m.name, harga: m.price, qty: 1, catatan: "" });
+  gambarStruk();
+}
+
+function ubahQty(id, delta){
+  const k = keranjang.find(k => k.id === id);
+  if (!k) return;
+  k.qty += delta;
+  if (k.qty < 1) keranjang = keranjang.filter(x => x.id !== id);
+  gambarStruk();
+}
+
+function tulisCatatan(id, teks){
+  const k = keranjang.find(k => k.id === id);
+  if (k) k.catatan = teks;
+}
+
+function kosongkan(){
+  keranjang = [];
+  el("cust").value = "";
+  el("disc").value = 0;
+  el("uang").value = 0;
+  gambarStruk();
+}
+
+function gambarStruk(){
+  const box = el("struk");
+  box.innerHTML = "";
+
+  if (!keranjang.length){
+    box.innerHTML = '<div class="empty">Pilih menu untuk memulai.</div>';
+    hitung();
+    return;
+  }
+
+  keranjang.forEach(k => {
+    const row = document.createElement("div");
+    row.className = "line";
+
+    const q = document.createElement("span");
+    q.className = "q num";
+    q.textContent = k.qty + "\u00d7";
+
+    const n = document.createElement("span");
+    n.className = "n";
+    n.textContent = k.nama;
+
+    const s = document.createElement("span");
+    s.className = "s num";
+    s.textContent = rp(k.harga * k.qty);
+
+    const tools = document.createElement("span");
+    tools.className = "x";
+    const kurang = document.createElement("button");
+    kurang.textContent = "kurangi";
+    kurang.onclick = () => ubahQty(k.id, -1);
+    const catat = document.createElement("input");
+    catat.placeholder = "catatan";
+    catat.value = k.catatan;
+    catat.style.cssText = "width:130px;padding:2px 6px;font-size:12px;margin-left:10px";
+    catat.oninput = e => tulisCatatan(k.id, e.target.value);
+    tools.append(kurang, catat);
+
+    row.append(q, n, s, tools);
+    box.appendChild(row);
+  });
+
+  hitung();
+}
+
+function hitung(){
+  const sub   = keranjang.reduce((t, k) => t + k.harga * k.qty, 0);
+  const disc  = Math.max(0, parseInt(el("disc").value) || 0);
+  const total = Math.max(0, sub - disc);
+  const tunai = el("bayar").value === "cash";
+
+  el("vSub").textContent = rp(sub);
+  el("vTot").textContent = rp(total);
+  el("wrapUang").style.visibility = tunai ? "visible" : "hidden";
+
+  const baris = el("vKembali");
+  baris.className = "sum";
+  baris.innerHTML = "";
+
+  if (tunai && keranjang.length){
+    const uang = parseInt(el("uang").value) || 0;
+    const beda = uang - total;
+    baris.className = "sum " + (beda < 0 ? "short" : "change");
+    baris.innerHTML = "<span>" + (beda < 0 ? "Kurang" : "Kembalian") +
+                      '</span><span class="num">' + rp(Math.abs(beda)) + "</span>";
+  }
+
+  el("btnKirim").disabled = keranjang.length === 0;
+}
+
+/* ---------------- kirim pesanan ---------------- */
+
+async function kirim(){
+  const w = el("warnKasir");
+  w.textContent = "";
+
+  const tunai = el("bayar").value === "cash";
+  const badan = {
+    customer_name : el("cust").value.trim(),
+    items         : keranjang.map(k => ({ menu_item_id: k.id, quantity: k.qty, note: k.catatan })),
+    discount      : Math.max(0, parseInt(el("disc").value) || 0),
+    payment_method: el("bayar").value,
+    amount_paid   : tunai ? (parseInt(el("uang").value) || 0) : 0
+  };
+
+  const btn = el("btnKirim");
+  btn.disabled = true;
+
+  try{
+    const res = await api("/api/orders", { method: "POST", body: JSON.stringify(badan) });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || "Pesanan gagal disimpan.");
+
+    pesan("Antrean #" + d.queue_number +
+          (d.payment_method === "cash" ? " \u00b7 kembalian " + rp(d.change_amount) : ""));
+    kosongkan();
+    muatLaporan();
+  }catch(e){
+    w.textContent = e.message;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+/* ---------------- antrean ---------------- */
+
+async function muatAntrean(){
+  const res = await api("/api/orders?limit=" + (peran === "koki" ? 40 : 12));
+  if (!res.ok) return;
+
+  const hasil = await res.json();          // { data, meta }
+  let daftar = hasil.data || [];
+
+  // Dapur hanya peduli yang belum selesai.
+  if (peran === "koki") daftar = daftar.filter(o => o.status === "pending" || o.status === "cooking");
+
+  gambarAntrean(daftar);
+}
+
+function gambarAntrean(daftar){
+  const box = el("antrean");
+  box.innerHTML = "";
+
+  if (!daftar.length){
+    box.innerHTML = '<div class="empty">' +
+      (peran === "koki" ? "Antrean kosong. Semua pesanan sudah selesai." : "Belum ada pesanan hari ini.") +
+      "</div>";
+    return;
+  }
+
+  const label = { pending:"menunggu", cooking:"dimasak", done:"selesai", cancelled:"dibatalkan" };
+
+  daftar.forEach(o => {
+    const tile = document.createElement("div");
+    tile.className = "tile " + o.status;
+
+    const flag = document.createElement("div");
+    flag.className = "flag";
+
+    const isi = document.createElement("div");
+    isi.className = "in";
+
+    const top = document.createElement("div");
+    top.className = "top";
+    top.innerHTML = '<span class="no num"></span><span class="st"></span>';
+    top.querySelector(".no").textContent = "#" + o.queue_number;
+    top.querySelector(".st").textContent = label[o.status] || o.status;
+
+    const cust = document.createElement("div");
+    cust.className = "cust";
+    cust.textContent = o.customer_name;
+
+    const ul = document.createElement("ul");
+    (o.items || []).forEach(i => {
+      const li = document.createElement("li");
+      li.textContent = i.quantity + "\u00d7 " + i.menu_name;
+      if (i.note){
+        const m = document.createElement("span");
+        m.className = "memo";
+        m.textContent = " \u2014 " + i.note;
+        li.appendChild(m);
       }
+      ul.appendChild(li);
+    });
+
+    isi.append(top, cust, ul);
+
+    if (peran === "kasir"){
+      const pay = document.createElement("div");
+      pay.className = "pay num";
+      pay.textContent = rp(o.total) + (o.discount ? " (diskon " + rp(o.discount) + ")" : "") +
+                        " \u00b7 " + (o.payment_method === "cash" ? "tunai" : "non-tunai");
+      isi.appendChild(pay);
     }
 
-    function showApp() {
-      document.getElementById("loginView").classList.add("hidden");
-      document.getElementById("appHeader").classList.remove("hidden");
-      document.getElementById("ordersView").classList.remove("hidden");
-      document.getElementById("roleLabel").textContent = role;
+    const tombol = aksi(o);
+    if (tombol) isi.appendChild(tombol);
 
-      if (role === "kasir") {
-        document.getElementById("kasirView").classList.remove("hidden");
-        document.getElementById("ordersTitle").textContent = "Pesanan Saya";
-      } else {
-        document.getElementById("ordersTitle").textContent = "Antrian Dapur";
-      }
+    tile.append(flag, isi);
+    box.appendChild(tile);
+  });
+}
 
-      loadOrders();
-      connectWS();
-    }
+function aksi(o){
+  const b = document.createElement("button");
+  b.className = "act";
 
-    function logout() {
-      token = ""; role = "";
-      if (ws) ws.close();
-      location.reload();
-    }
+  if (peran === "koki" && o.status === "pending"){
+    b.textContent = "Mulai masak";
+    b.onclick = () => ubahStatus(o.id, "cooking");
+    return b;
+  }
+  if (peran === "koki" && o.status === "cooking"){
+    b.textContent = "Tandai selesai";
+    b.onclick = () => ubahStatus(o.id, "done");
+    return b;
+  }
+  if (peran === "kasir" && o.status === "pending"){
+    b.className = "act ghost";
+    b.textContent = "Batalkan";
+    b.onclick = () => batalkan(o.id);
+    return b;
+  }
+  return null;
+}
 
-    function addItemRow() {
-      const row = document.createElement("div");
-      row.className = "item-row";
-      row.innerHTML = '<input placeholder="Menu" class="menu" /><input placeholder="Qty" class="qty" type="number" value="1" style="max-width:80px" /><input placeholder="Catatan" class="note" />';
-      document.getElementById("itemsContainer").appendChild(row);
-    }
+async function ubahStatus(id, status){
+  const res = await api("/api/orders/" + id + "/status", {
+    method: "PATCH",
+    body: JSON.stringify({ status })
+  });
+  if (!res.ok){
+    const d = await res.json().catch(() => ({}));
+    pesan(d.error || "Status tidak bisa diubah.");
+  }
+  muatAntrean();
+}
 
-    async function createOrder() {
-      document.getElementById("kasirError").textContent = "";
-      const customer_name = document.getElementById("customerName").value;
-      const rows = document.querySelectorAll("#itemsContainer .item-row");
-      const items = [];
-      rows.forEach(r => {
-        const menu = r.querySelector(".menu").value;
-        const qty = parseInt(r.querySelector(".qty").value);
-        const note = r.querySelector(".note").value;
-        if (menu && qty > 0) items.push({ menu_name: menu, quantity: qty, note });
-      });
+async function batalkan(id){
+  const res = await api("/api/orders/" + id, { method: "DELETE" });
+  if (!res.ok){
+    const d = await res.json().catch(() => ({}));
+    pesan(d.error || "Pesanan tidak bisa dibatalkan.");
+  }else{
+    pesan("Pesanan dibatalkan.");
+    muatLaporan();
+  }
+  muatAntrean();
+}
 
-      try {
-        const res = await fetch(API + "/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-          body: JSON.stringify({ customer_name, items }),
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Gagal membuat pesanan");
-        }
-        document.getElementById("customerName").value = "";
-        document.getElementById("itemsContainer").innerHTML = '<div class="item-row"><input placeholder="Menu" class="menu" /><input placeholder="Qty" class="qty" type="number" value="1" style="max-width:80px" /><input placeholder="Catatan" class="note" /></div>';
-      } catch (e) {
-        document.getElementById("kasirError").textContent = e.message;
-      }
-    }
+/* ---------------- laporan ---------------- */
 
-    async function loadOrders() {
-      const res = await fetch(API + "/api/orders", {
-        headers: { "Authorization": "Bearer " + token },
-      });
-      if (!res.ok) return;
-      const orders = await res.json();
-      renderOrders(orders);
-    }
+async function muatLaporan(){
+  const res = await api("/api/reports/daily");
+  if (!res.ok) return;
+  const r = await res.json();
 
-    function renderOrders(orders) {
-      const list = document.getElementById("ordersList");
-      list.innerHTML = "";
-      // Koki fokus ke yang masih aktif; kasir lihat semua.
-      const shown = role === "koki"
-        ? orders.filter(o => o.status === "pending" || o.status === "cooking")
-        : orders;
+  el("stats").innerHTML = "";
+  [
+    ["Pesanan",   r.total_orders],
+    ["Dibatalkan",r.cancelled_orders],
+    ["Omzet",     rp(r.net_revenue)],
+    ["Diskon",    rp(r.total_discount)],
+    ["Tunai",     rp(r.cash_revenue)],
+    ["Non-tunai", rp(r.non_cash_revenue)]
+  ].forEach(([k, v]) => {
+    const d = document.createElement("div");
+    d.className = "stat";
+    d.innerHTML = '<div class="k"></div><div class="v num"></div>';
+    d.querySelector(".k").textContent = k;
+    d.querySelector(".v").textContent = v;
+    el("stats").appendChild(d);
+  });
 
-      if (shown.length === 0) {
-        list.innerHTML = '<p class="muted">Belum ada pesanan.</p>';
-        return;
-      }
+  const list = el("terlaris");
+  list.innerHTML = "";
+  if (!(r.top_items || []).length) return;
 
-      shown.forEach(o => {
-        const div = document.createElement("div");
-        div.className = "order " + o.status;
-        const itemsText = (o.items || []).map(i => `${i.quantity}× ${i.menu_name}${i.note ? " ("+i.note+")" : ""}`).join(", ");
-        let actions = "";
-        if (role === "koki") {
-          if (o.status === "pending") actions = `<button onclick="updateStatus(${o.id}, 'cooking')">Mulai Masak</button>`;
-          if (o.status === "cooking") actions = `<button onclick="updateStatus(${o.id}, 'done')">Selesai</button>`;
-        }
-        if (role === "kasir" && o.status === "pending") {
-          actions = `<button class="secondary" onclick="cancelOrder(${o.id})">Batal</button>`;
-        }
-        div.innerHTML = `
-          <span class="queue">#${o.queue_number}</span>
-          <span class="status-badge">${o.status}</span>
-          <div><b>${o.customer_name}</b></div>
-          <div class="muted">${itemsText}</div>
-          <div class="row-actions">${actions}</div>
-        `;
-        list.appendChild(div);
-      });
-    }
+  r.top_items.forEach(t => {
+    const d = document.createElement("div");
+    const kiri = document.createElement("span");
+    kiri.textContent = t.menu_name;
+    const kanan = document.createElement("span");
+    kanan.className = "num";
+    kanan.textContent = t.quantity_sold + " porsi \u00b7 " + rp(t.revenue);
+    d.append(kiri, kanan);
+    list.appendChild(d);
+  });
+}
 
-    async function updateStatus(id, status) {
-      await fetch(API + `/api/orders/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-        body: JSON.stringify({ status }),
-      });
-      loadOrders();
-    }
+/* ---------------- realtime ---------------- */
 
-    async function cancelOrder(id) {
-      await fetch(API + `/api/orders/${id}`, {
-        method: "DELETE",
-        headers: { "Authorization": "Bearer " + token },
-      });
-      loadOrders();
-    }
+function sambungWS(){
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(proto + "://" + location.host + "/ws/orders");
 
-    function connectWS() {
-      const proto = location.protocol === "https:" ? "wss" : "ws";
-      ws = new WebSocket(`${proto}://${location.host}/ws/orders`);
-      ws.onmessage = () => {
-        // Ada perubahan (pesanan baru / status berubah) → muat ulang daftar.
-        loadOrders();
-      };
-      ws.onclose = () => {
-        // Coba sambung lagi setelah 3 detik bila terputus.
-        setTimeout(connectWS, 3000);
-      };
-    }
-  </script>
+  ws.onopen  = () => el("statusWS").textContent = "Realtime aktif";
+  ws.onerror = () => el("statusWS").textContent = "Terputus";
+
+  ws.onmessage = () => {
+    muatAntrean();
+    if (peran === "kasir") muatLaporan();
+  };
+
+  ws.onclose = () => {
+    el("statusWS").textContent = "Menyambung ulang\u2026";
+    setTimeout(sambungWS, 3000);
+  };
+}
+
+gambarStruk();
+</script>
 </body>
 </html>

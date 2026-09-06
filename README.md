@@ -284,6 +284,6 @@ Semua di bawah `/api`. Kolom akses menandakan peran yang diizinkan.
 
 <div align="center">
 
-Dibangun oleh **Maulana** — [GitHub](https://github.com/mauinGit)
+Dibangun oleh **Maulana & Claude** — [GitHub](https://github.com/mauinGit)
 
 </div>
