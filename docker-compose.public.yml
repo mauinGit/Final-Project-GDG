@@ -1,18 +1,16 @@
-name: orderflow-dev
+name: orderflow
 
 services:
   db:
     image: postgres:16-alpine
-    container_name: orderflow_db_prod
+    container_name: orderflow_db
     restart: unless-stopped
-    ports:
-      - "${DB_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - orderflow_pgdata_prod:/var/lib/postgresql/data
+      - orderflow_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
@@ -20,9 +18,7 @@ services:
       retries: 5
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/mauingit/final-project-gdg:latest
     container_name: orderflow_app
     restart: unless-stopped
     depends_on:
@@ -36,8 +32,8 @@ services:
       DB_PORT: 5432
       APP_PORT: 8080
       APP_ENV: ${APP_ENV:-production}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
       JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
       SEED_KASIR_EMAIL: ${SEED_KASIR_EMAIL}
       SEED_KASIR_PASSWORD: ${SEED_KASIR_PASSWORD}
       SEED_PEMASAK_EMAIL: ${SEED_PEMASAK_EMAIL}
@@ -52,4 +48,4 @@ services:
       start_period: 10s
 
 volumes:
-  orderflow_pgdata_prod:
+  orderflow_pgdata:
