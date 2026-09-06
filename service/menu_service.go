@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"FinalProjectBE/models"
-	"FinalProjectBE/repository"
 )
 
 var (
@@ -20,11 +19,19 @@ var (
 	ErrMenuInUse         = errors.New("menu tidak bisa dihapus karena sudah pernah dipesan")
 )
 
-type MenuService struct {
-	repo *repository.MenuRepository
+type MenuStore interface {
+	Create(ctx context.Context, m *models.MenuItem) error
+	FindAll(ctx context.Context, category string) ([]models.MenuItem, error)
+	FindByID(ctx context.Context, id int64) (*models.MenuItem, error)
+	Update(ctx context.Context, m *models.MenuItem) error
+	Delete(ctx context.Context, id int64) error
 }
 
-func NewMenuService(repo *repository.MenuRepository) *MenuService {
+type MenuService struct {
+	repo MenuStore
+}
+
+func NewMenuService(repo MenuStore) *MenuService {
 	return &MenuService{repo: repo}
 }
 
