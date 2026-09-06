@@ -50,6 +50,23 @@ Perubahan di luar alur itu ditolak. Pesanan yang sudah dimasak tidak bisa dibata
 Di akhir hari, kasir membuka **laporan harian**: jumlah pesanan, omzet kotor dan bersih, total diskon, pemisahan uang tunai dan non-tunai untuk mencocokkan isi laci, serta menu terlaris.
 
 ---
+## Fitur Utama
+
+- 🔐 **Autentikasi JWT** — access token berumur pendek dengan refresh token, dilengkapi reuse detection: token yang dipakai ulang memicu pencabutan seluruh sesi pengguna
+- 👥 **Otorisasi dua peran** — kasir dan koki, dijaga middleware terpisah antara autentikasi dan pemeriksaan peran
+- 📋 **Manajemen menu** — CRUD lengkap dengan nama unik tanpa peduli huruf besar-kecil; menu yang pernah dipesan tidak bisa dihapus
+- 🧾 **Pemesanan & pembayaran** — nomor antrean otomatis, diskon nominal, pembayaran tunai atau non-tunai dengan kembalian dihitung server
+- 💰 **Harga dibekukan per transaksi** — perubahan harga menu tidak mengubah nilai riwayat pesanan
+- ⚡ **Realtime WebSocket** — pesanan baru dan perubahan status langsung tersiar ke layar dapur tanpa refresh
+- 🔄 **Alur status terjaga** — `pending → cooking → done`, pembatalan hanya saat masih pending
+- 📊 **Laporan harian** — omzet kotor & bersih, total diskon, pemisahan tunai/non-tunai, dan menu terlaris
+- 📄 **Pagination & filter** — daftar pesanan disaring per status dan tanggal, lengkap dengan metadata halaman
+- 🛡️ **Rate limiting per IP** — longgar untuk umum, ketat untuk login dan refresh
+- 🔍 **Request ID & structured logging** — JSON di production, teks terbaca di development
+- 🩺 **Liveness & readiness terpisah** — dipakai Docker untuk menentukan kesiapan container
+- 🗃️ **Migrasi berversi** — berjalan otomatis saat startup, dicatat agar tidak terulang
+- 🧪 **Dua lapis pengujian** — unit test (coverage service 93%) dan integration test dengan PostgreSQL sungguhan
+- 📖 **Swagger/OpenAPI** — dokumentasi interaktif yang ikut ter-deploy di dalam container
 
 ## Keputusan teknis & alasannya
 
