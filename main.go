@@ -42,6 +42,7 @@ func main() {
 	userRepo := repository.NewUserRepository(pool)
 	orderRepo := repository.NewOrderRepository(pool)
 	menuRepo := repository.NewMenuRepository(pool)
+	reportRepo := repository.NewReportRepository(pool)
 
 	if err := database.SeedUsers(context.Background(), userRepo, cfg); err != nil {
 		log.Fatalf("gagal seeding user: %v", err)
@@ -53,13 +54,15 @@ func main() {
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	orderService := service.NewOrderService(orderRepo)
 	menuService := service.NewMenuService(menuRepo)
+	reportService := service.NewReportService(reportRepo)
 
 	authCtrl := controllers.NewAuthController(authService)
 	orderCtrl := controllers.NewOrderController(orderService, hub)
 	healthCtrl := controllers.NewHealthController(pool)
 	menuCtrl := controllers.NewMenuController(menuService)
+	reportCtrl := controllers.NewReportController(reportService)
 
-	r := routes.SetupRouter(authCtrl, orderCtrl, healthCtrl, menuCtrl, hub, cfg.JWTSecret, appLog, cfg.AllowedOrigins())
+	r := routes.SetupRouter(authCtrl, orderCtrl, healthCtrl, menuCtrl, reportCtrl, hub, cfg.JWTSecret, appLog, cfg.AllowedOrigins())
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.AppPort,

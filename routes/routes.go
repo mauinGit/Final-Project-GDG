@@ -16,6 +16,7 @@ func SetupRouter(
 	orderCtrl *controllers.OrderController,
 	healthCtrl *controllers.HealthController,
 	menuCtrl *controllers.MenuController,
+	reportCtrl *controllers.ReportController,
 	hub *ws.Hub,
 	jwtSecret string,
 	log *slog.Logger,
@@ -63,6 +64,8 @@ func SetupRouter(
 			protected.POST("/menu", middleware.RequireRole("kasir"), menuCtrl.Create)
 			protected.PATCH("/menu/:id", middleware.RequireRole("kasir"), menuCtrl.Update)
 			protected.DELETE("/menu/:id", middleware.RequireRole("kasir"), menuCtrl.Delete)
+
+			protected.GET("/reports/daily", middleware.RequireRole("kasir"), reportCtrl.Daily)
 		}
 	}
 
