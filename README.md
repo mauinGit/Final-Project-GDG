@@ -11,7 +11,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 [![Swagger](https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](https://swagger.io)
 
-[![CI](https://img.shields.io/github/actions/workflow/status/mauinGit/Final-Project-GDG/ci.yml?style=flat-square&label=CI)](https://github.com/mauinGit/Final-Project-GDG/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/mauinGit/Final-Project-GDG/deploy.yml?style=flat-square&label=CI)](https://github.com/mauinGit/Final-Project-GDG/actions)
 ![Coverage](https://img.shields.io/badge/service_coverage-93%25-success?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 
