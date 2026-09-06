@@ -39,6 +39,19 @@ type updateStatusRequest struct {
 	Status string `json:"status" binding:"required"`
 }
 
+// Create godoc
+// @Summary      Buat pesanan baru
+// @Description  Kasir membuat pesanan. Nama dan harga item diambil otomatis dari data menu, bukan dari input. Nomor antrean dihitung otomatis dan direset setiap hari.
+// @Tags         order
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body createOrderRequest true "Data pesanan"
+// @Success      201 {object} models.Order
+// @Failure      400 {object} map[string]string "Input tidak valid"
+// @Failure      403 {object} map[string]string "Bukan kasir"
+// @Failure      422 {object} map[string]string "Menu tidak ada, diskon melebihi subtotal, atau uang kurang"
+// @Router       /orders [post]
 func (ctrl *OrderController) Create(c *gin.Context) {
 	var req createOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -72,6 +85,20 @@ func (ctrl *OrderController) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, order)
 }
 
+// List godoc
+// @Summary      Daftar pesanan
+// @Description  Menampilkan pesanan dengan halaman. Bisa disaring per status dan per tanggal. Terurut dari yang terbaru.
+// @Tags         order
+// @Produce      json
+// @Security     BearerAuth
+// @Param        status query string false "Saring status" Enums(pending, cooking, done, cancelled)
+// @Param        date   query string false "Saring tanggal, format YYYY-MM-DD"
+// @Param        page   query int    false "Halaman, mulai dari 1" default(1)
+// @Param        limit  query int    false "Baris per halaman, maksimal 100" default(10)
+// @Success      200 {object} models.OrderListResult
+// @Failure      401 {object} map[string]string "Token tidak valid"
+// @Failure      422 {object} map[string]string "Status atau tanggal tidak valid"
+// @Router       /orders [get]
 func (ctrl *OrderController) List(c *gin.Context) {
 	page, _ := strconv.Atoi(c.Query("page"))
 	limit, _ := strconv.Atoi(c.Query("limit"))
@@ -97,6 +124,16 @@ func (ctrl *OrderController) List(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// GetByID godoc
+// @Summary      Detail satu pesanan
+// @Tags         order
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path int true "ID pesanan"
+// @Success      200 {object} models.Order
+// @Failure      400 {object} map[string]string "ID tidak valid"
+// @Failure      404 {object} map[string]string "Pesanan tidak ditemukan"
+// @Router       /orders/{id} [get]
 func (ctrl *OrderController) GetByID(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -117,6 +154,21 @@ func (ctrl *OrderController) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, order)
 }
 
+// UpdateStatus godoc
+// @Summary      Ubah status pesanan
+// @Description  Hanya koki yang boleh mengubah status. Alur yang diizinkan: pending ke cooking, lalu cooking ke done. Perubahan di luar alur itu ditolak.
+// @Tags         order
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path int true "ID pesanan"
+// @Param        request body updateStatusRequest true "Status baru"
+// @Success      200 {object} models.Order
+// @Failure      400 {object} map[string]string "ID atau status tidak dikenal"
+// @Failure      403 {object} map[string]string "Bukan koki"
+// @Failure      404 {object} map[string]string "Pesanan tidak ditemukan"
+// @Failure      422 {object} map[string]string "Perubahan status tidak diperbolehkan"
+// @Router       /orders/{id}/status [patch]
 func (ctrl *OrderController) UpdateStatus(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -150,6 +202,19 @@ func (ctrl *OrderController) UpdateStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, order)
 }
 
+// Cancel godoc
+// @Summary      Batalkan pesanan
+// @Description  Hanya kasir yang boleh membatalkan, dan hanya selama pesanan masih berstatus pending.
+// @Tags         order
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path int true "ID pesanan"
+// @Success      200 {object} models.Order
+// @Failure      400 {object} map[string]string "ID tidak valid"
+// @Failure      403 {object} map[string]string "Bukan kasir"
+// @Failure      404 {object} map[string]string "Pesanan tidak ditemukan"
+// @Failure      409 {object} map[string]string "Pesanan sudah tidak bisa dibatalkan"
+// @Router       /orders/{id} [delete]
 func (ctrl *OrderController) Cancel(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

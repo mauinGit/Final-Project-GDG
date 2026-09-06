@@ -1,0 +1,811 @@
+basePath: /api
+definitions:
+  controllers.createOrderRequest:
+    properties:
+      amount_paid:
+        type: integer
+      customer_name:
+        type: string
+      discount:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/controllers.orderItemRequest'
+        minItems: 1
+        type: array
+      payment_method:
+        type: string
+    required:
+    - customer_name
+    - items
+    - payment_method
+    type: object
+  controllers.menuRequest:
+    properties:
+      category:
+        type: string
+      image_url:
+        type: string
+      name:
+        type: string
+      price:
+        type: integer
+    required:
+    - category
+    - name
+    type: object
+  controllers.orderItemRequest:
+    properties:
+      menu_item_id:
+        type: integer
+      note:
+        type: string
+      quantity:
+        type: integer
+    required:
+    - menu_item_id
+    - quantity
+    type: object
+  controllers.refreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  controllers.updateStatusRequest:
+    properties:
+      status:
+        type: string
+    required:
+    - status
+    type: object
+  models.DailyReport:
+    properties:
+      cancelled_orders:
+        type: integer
+      cash_revenue:
+        type: integer
+      date:
+        type: string
+      gross_revenue:
+        type: integer
+      net_revenue:
+        type: integer
+      non_cash_revenue:
+        type: integer
+      top_items:
+        items:
+          $ref: '#/definitions/models.TopItem'
+        type: array
+      total_discount:
+        type: integer
+      total_orders:
+        type: integer
+    type: object
+  models.MenuItem:
+    properties:
+      category:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      image_url:
+        type: string
+      name:
+        type: string
+      price:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  models.Order:
+    properties:
+      amount_paid:
+        type: integer
+      change_amount:
+        type: integer
+      created_at:
+        type: string
+      customer_name:
+        type: string
+      discount:
+        type: integer
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/models.OrderItem'
+        type: array
+      payment_method:
+        type: string
+      queue_number:
+        type: integer
+      status:
+        type: string
+      subtotal:
+        type: integer
+      total:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  models.OrderItem:
+    properties:
+      id:
+        type: integer
+      menu_item_id:
+        type: integer
+      menu_name:
+        type: string
+      note:
+        type: string
+      order_id:
+        type: integer
+      price_at_order:
+        type: integer
+      quantity:
+        type: integer
+    type: object
+  models.OrderListResult:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/models.Order'
+        type: array
+      meta:
+        $ref: '#/definitions/models.PageMeta'
+    type: object
+  models.PageMeta:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      total_items:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  models.TopItem:
+    properties:
+      menu_item_id:
+        type: integer
+      menu_name:
+        type: string
+      quantity_sold:
+        type: integer
+      revenue:
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: |-
+    REST API untuk sistem kasir dan antrean dapur.
+    Kasir membuat pesanan, koki memprosesnya secara realtime.
+  title: OrderFlow API
+  version: "1.0"
+paths:
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Mencabut refresh token sehingga tidak bisa dipakai lagi.
+      parameters:
+      - description: Refresh token yang dicabut
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.refreshRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Berhasil keluar
+        "400":
+          description: Input tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Token tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Keluar dari sesi
+      tags:
+      - auth
+  /auth/me:
+    get:
+      description: Mengembalikan identitas pemilik access token yang sedang dipakai.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Data pengguna
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Token tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Pengguna tidak ditemukan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Info pengguna saat ini
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Menukar refresh token dengan pasangan token baru. Jika refresh
+        token yang sudah pernah dipakai dikirim ulang, seluruh sesi pengguna dicabut.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.refreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token baru diterbitkan
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Input tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Token tidak valid, kedaluwarsa, atau sesi dicabut
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Perbarui access token
+      tags:
+      - auth
+  /healthz:
+    get:
+      description: Menandakan proses aplikasi berjalan. Tidak menyentuh database.
+        Dipakai orchestrator untuk memutuskan perlu restart atau tidak.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Aplikasi hidup
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Cek aplikasi hidup
+      tags:
+      - health
+  /menu:
+    get:
+      description: Menampilkan seluruh menu, bisa disaring per kategori. Kasir dan
+        koki sama-sama boleh mengakses.
+      parameters:
+      - description: Saring berdasarkan kategori
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.MenuItem'
+            type: array
+        "401":
+          description: Token tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Daftar menu
+      tags:
+      - menu
+    post:
+      consumes:
+      - application/json
+      description: Hanya kasir yang boleh menambah menu. Nama menu unik tanpa peduli
+        huruf besar-kecil.
+      parameters:
+      - description: Data menu
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.menuRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.MenuItem'
+        "401":
+          description: Token tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Bukan kasir
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Nama menu sudah dipakai
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Data tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Tambah menu baru
+      tags:
+      - menu
+  /menu/{id}:
+    delete:
+      description: Menu yang sudah pernah dipesan tidak bisa dihapus demi menjaga
+        riwayat transaksi.
+      parameters:
+      - description: ID menu
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Berhasil dihapus
+        "400":
+          description: ID tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Bukan kasir
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Menu tidak ditemukan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Menu sudah pernah dipesan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Hapus menu
+      tags:
+      - menu
+    get:
+      parameters:
+      - description: ID menu
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.MenuItem'
+        "400":
+          description: ID tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Token tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Menu tidak ditemukan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Detail satu menu
+      tags:
+      - menu
+    patch:
+      consumes:
+      - application/json
+      description: Hanya kasir yang boleh mengubah menu.
+      parameters:
+      - description: ID menu
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Data menu
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.menuRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.MenuItem'
+        "400":
+          description: ID atau input tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Bukan kasir
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Menu tidak ditemukan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Nama menu sudah dipakai
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Data tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Ubah data menu
+      tags:
+      - menu
+  /orders:
+    get:
+      description: Menampilkan pesanan dengan halaman. Bisa disaring per status dan
+        per tanggal. Terurut dari yang terbaru.
+      parameters:
+      - description: Saring status
+        enum:
+        - pending
+        - cooking
+        - done
+        - cancelled
+        in: query
+        name: status
+        type: string
+      - description: Saring tanggal, format YYYY-MM-DD
+        in: query
+        name: date
+        type: string
+      - default: 1
+        description: Halaman, mulai dari 1
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Baris per halaman, maksimal 100
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.OrderListResult'
+        "401":
+          description: Token tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Status atau tanggal tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Daftar pesanan
+      tags:
+      - order
+    post:
+      consumes:
+      - application/json
+      description: Kasir membuat pesanan. Nama dan harga item diambil otomatis dari
+        data menu, bukan dari input. Nomor antrean dihitung otomatis dan direset setiap
+        hari.
+      parameters:
+      - description: Data pesanan
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.createOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Order'
+        "400":
+          description: Input tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Bukan kasir
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Menu tidak ada, diskon melebihi subtotal, atau uang kurang
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Buat pesanan baru
+      tags:
+      - order
+  /orders/{id}:
+    delete:
+      description: Hanya kasir yang boleh membatalkan, dan hanya selama pesanan masih
+        berstatus pending.
+      parameters:
+      - description: ID pesanan
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Order'
+        "400":
+          description: ID tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Bukan kasir
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Pesanan tidak ditemukan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Pesanan sudah tidak bisa dibatalkan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Batalkan pesanan
+      tags:
+      - order
+    get:
+      parameters:
+      - description: ID pesanan
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Order'
+        "400":
+          description: ID tidak valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Pesanan tidak ditemukan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Detail satu pesanan
+      tags:
+      - order
+  /orders/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: 'Hanya koki yang boleh mengubah status. Alur yang diizinkan: pending
+        ke cooking, lalu cooking ke done. Perubahan di luar alur itu ditolak.'
+      parameters:
+      - description: ID pesanan
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Status baru
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.updateStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Order'
+        "400":
+          description: ID atau status tidak dikenal
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Bukan koki
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Pesanan tidak ditemukan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Perubahan status tidak diperbolehkan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Ubah status pesanan
+      tags:
+      - order
+  /readyz:
+    get:
+      description: Memeriksa koneksi database. Mengembalikan 503 jika database tidak
+        terjangkau, menandakan aplikasi belum layak menerima lalu lintas.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Siap
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Database tidak terjangkau
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Cek aplikasi siap melayani
+      tags:
+      - health
+  /reports/daily:
+    get:
+      description: Ringkasan penjualan untuk satu tanggal. Pesanan yang dibatalkan
+        tetap dihitung sebagai aktivitas, tetapi tidak masuk perhitungan omzet. Hanya
+        kasir yang boleh mengakses.
+      parameters:
+      - description: Tanggal laporan, format YYYY-MM-DD. Kosong berarti hari ini
+        in: query
+        name: date
+        type: string
+      - default: 5
+        description: Jumlah menu terlaris yang ditampilkan
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DailyReport'
+        "403":
+          description: Bukan kasir
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Format tanggal salah atau tanggal di masa depan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Laporan penjualan harian
+      tags:
+      - report
+securityDefinitions:
+  BearerAuth:
+    description: 'Masukkan token dengan format: Bearer {token}'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

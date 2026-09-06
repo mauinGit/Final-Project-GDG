@@ -51,6 +51,17 @@ func (ctrl *AuthController) Login(c *gin.Context) {
 	})
 }
 
+// Refresh godoc
+// @Summary      Perbarui access token
+// @Description  Menukar refresh token dengan pasangan token baru. Jika refresh token yang sudah pernah dipakai dikirim ulang, seluruh sesi pengguna dicabut.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body refreshRequest true "Refresh token"
+// @Success      200 {object} map[string]interface{} "Token baru diterbitkan"
+// @Failure      400 {object} map[string]string "Input tidak valid"
+// @Failure      401 {object} map[string]string "Token tidak valid, kedaluwarsa, atau sesi dicabut"
+// @Router       /auth/refresh [post]
 func (ctrl *AuthController) Refresh(c *gin.Context) {
 	var req refreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -82,6 +93,18 @@ func (ctrl *AuthController) Refresh(c *gin.Context) {
 	})
 }
 
+// Logout godoc
+// @Summary      Keluar dari sesi
+// @Description  Mencabut refresh token sehingga tidak bisa dipakai lagi.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body refreshRequest true "Refresh token yang dicabut"
+// @Success      204 "Berhasil keluar"
+// @Failure      400 {object} map[string]string "Input tidak valid"
+// @Failure      401 {object} map[string]string "Token tidak valid"
+// @Router       /auth/logout [post]
 func (ctrl *AuthController) Logout(c *gin.Context) {
 	var req refreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -101,6 +124,16 @@ func (ctrl *AuthController) Logout(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// Me godoc
+// @Summary      Info pengguna saat ini
+// @Description  Mengembalikan identitas pemilik access token yang sedang dipakai.
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} map[string]interface{} "Data pengguna"
+// @Failure      401 {object} map[string]string "Token tidak valid"
+// @Failure      404 {object} map[string]string "Pengguna tidak ditemukan"
+// @Router       /auth/me [get]
 func (ctrl *AuthController) Me(c *gin.Context) {
 	userID, exists := c.Get(middleware.ContextUserID)
 	if !exists {

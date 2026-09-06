@@ -19,8 +19,21 @@ import (
 	"FinalProjectBE/service"
 	"FinalProjectBE/ws"
 	"FinalProjectBE/logger"
-)
 
+	_ "FinalProjectBE/docs"
+)
+// @title           OrderFlow API
+// @version         1.0
+// @description     REST API untuk sistem kasir dan antrean dapur.
+// @description     Kasir membuat pesanan, koki memprosesnya secara realtime.
+
+// @host      localhost:8080
+// @BasePath  /api
+
+// @securityDefinitions.apikey BearerAuth
+// @in                         header
+// @name                       Authorization
+// @description                Masukkan token dengan format: Bearer {token}
 func main() {
 	cfg, err := config.Load()
 	if err != nil {

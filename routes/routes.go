@@ -9,6 +9,9 @@ import (
 	"FinalProjectBE/controllers"
 	"FinalProjectBE/middleware"
 	"FinalProjectBE/ws"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func SetupRouter(
@@ -39,6 +42,8 @@ func SetupRouter(
 
 	r.GET("/healthz", healthCtrl.Healthz)
 	r.GET("/readyz", healthCtrl.Readyz)
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r.GET("/ws/orders", ws.ServeWS(hub))
 
