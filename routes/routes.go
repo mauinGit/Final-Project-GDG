@@ -7,6 +7,7 @@ import (
 	"FinalProjectBE/controllers"
 	"FinalProjectBE/middleware"
 	"FinalProjectBE/ws"
+	"golang.org/x/time/rate"
 )
 
 func SetupRouter(
@@ -23,6 +24,9 @@ func SetupRouter(
 	r.Use(middleware.Logger(log))
 	r.Use(middleware.Recovery(log))
 
+	globalLimiter := middleware.NewRateLimiter(rate.Limit(20), 40)
+	r.Use(globalLimiter.Middleware())
+
 	r.StaticFile("/", "./frontend/index.html")
 	r.Static("/frontend", "./frontend")
 
@@ -33,7 +37,8 @@ func SetupRouter(
 
 	api := r.Group("/api")
 	{
-		api.POST("/auth/login", authCtrl.Login)
+		loginLimiter := middleware.NewRateLimiter(rate.Limit(0.2), 5)
+		api.POST("/auth/login", loginLimiter.Middleware(), authCtrl.Login)
 
 		protected := api.Group("")
 		protected.Use(middleware.AuthRequired(jwtSecret))
