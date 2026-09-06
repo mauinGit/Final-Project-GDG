@@ -22,14 +22,17 @@ func NewOrderController(orderService *service.OrderService, hub *ws.Hub) *OrderC
 }
 
 type orderItemRequest struct {
-	MenuName string `json:"menu_name" binding:"required"`
-	Quantity int    `json:"quantity" binding:"required,gt=0"`
-	Note     string `json:"note"`
+	MenuItemID int64  `json:"menu_item_id" binding:"required,gt=0"`
+	Quantity   int    `json:"quantity" binding:"required,gt=0"`
+	Note       string `json:"note"`
 }
 
 type createOrderRequest struct {
-	CustomerName string             `json:"customer_name" binding:"required"`
-	Items        []orderItemRequest `json:"items" binding:"required,min=1,dive"`
+	CustomerName  string             `json:"customer_name" binding:"required"`
+	Items         []orderItemRequest `json:"items" binding:"required,min=1,dive"`
+	Discount      int                `json:"discount"`
+	PaymentMethod string             `json:"payment_method" binding:"required"`
+	AmountPaid    int                `json:"amount_paid"`
 }
 
 type updateStatusRequest struct {
@@ -46,15 +49,21 @@ func (ctrl *OrderController) Create(c *gin.Context) {
 	items := make([]models.OrderItem, len(req.Items))
 	for i, it := range req.Items {
 		items[i] = models.OrderItem{
-			MenuName: it.MenuName,
-			Quantity: it.Quantity,
-			Note:     it.Note,
+			MenuItemID: it.MenuItemID,
+			Quantity:   it.Quantity,
+			Note:       it.Note,
 		}
 	}
 
-	order, err := ctrl.orderService.CreateOrder(c.Request.Context(), req.CustomerName, items)
+	order, err := ctrl.orderService.CreateOrder(c.Request.Context(), service.CreateOrderInput{
+		CustomerName:  req.CustomerName,
+		Items:         items,
+		Discount:      req.Discount,
+		PaymentMethod: req.PaymentMethod,
+		AmountPaid:    req.AmountPaid,
+	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeCreateOrderError(c, err)
 		return
 	}
 
@@ -155,4 +164,23 @@ func (ctrl *OrderController) Cancel(c *gin.Context) {
 	ctrl.hub.Broadcast("order_updated", order)
 
 	c.JSON(http.StatusOK, order)
+}
+
+func writeCreateOrderError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, service.ErrMenuNotExist):
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+
+	case errors.Is(err, service.ErrInvalidPayment),
+		errors.Is(err, service.ErrDiscountNegative),
+		errors.Is(err, service.ErrDiscountTooLarge),
+		errors.Is(err, service.ErrInsufficientPaid),
+		errors.Is(err, service.ErrEmptyCustomer),
+		errors.Is(err, service.ErrEmptyItems),
+		errors.Is(err, service.ErrInvalidQuantity):
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "terjadi kesalahan server"})
+	}
 }
