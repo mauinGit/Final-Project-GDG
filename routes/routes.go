@@ -17,6 +17,7 @@ func SetupRouter(
 	hub *ws.Hub,
 	jwtSecret string,
 	log *slog.Logger,
+	allowedOrigins []string,
 ) *gin.Engine {
 	r := gin.New()
 
@@ -26,6 +27,9 @@ func SetupRouter(
 
 	globalLimiter := middleware.NewRateLimiter(rate.Limit(20), 40)
 	r.Use(globalLimiter.Middleware())
+
+	r.Use(middleware.CORS(allowedOrigins))
+	r.Use(middleware.SecurityHeaders())
 
 	r.StaticFile("/", "./frontend/index.html")
 	r.Static("/frontend", "./frontend")

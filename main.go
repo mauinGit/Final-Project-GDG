@@ -56,9 +56,9 @@ func main() {
 	orderCtrl := controllers.NewOrderController(orderService, hub)
 	healthCtrl := controllers.NewHealthController(pool)
 
-		r := routes.SetupRouter(authCtrl, orderCtrl, healthCtrl, hub, cfg.JWTSecret, appLog)
+	r := routes.SetupRouter(authCtrl, orderCtrl, healthCtrl, hub, cfg.JWTSecret, appLog, cfg.AllowedOrigins())
 
-		srv := &http.Server{
+	srv := &http.Server{
 		Addr:    ":" + cfg.AppPort,
 		Handler: r,
 	}

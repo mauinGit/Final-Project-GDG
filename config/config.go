@@ -11,14 +11,15 @@ import (
 )
 
 type Config struct {
-	DBUser     string
-	DBPassword string
-	DBName     string
-	DBHost     string
-	DBPort     string
-	AppPort    string
-	AppEnv     string
-	JWTSecret  string
+	DBUser     		string
+	DBPassword 		string
+	DBName     		string
+	DBHost     		string
+	DBPort     		string
+	AppPort    		string
+	AppEnv     		string
+	CORSOrigins 	string
+	JWTSecret  		string
 
 	SeedKasirEmail      string
 	SeedKasirPassword   string
@@ -37,6 +38,7 @@ func Load() (*Config, error) {
 		DBPort:     os.Getenv("DB_PORT"),
 		AppPort:    os.Getenv("APP_PORT"),
 		AppEnv:     os.Getenv("APP_ENV"),
+		CORSOrigins: os.Getenv("CORS_ORIGINS"),
 		JWTSecret:  os.Getenv("JWT_SECRET"),
 
 		SeedKasirEmail:      os.Getenv("SEED_KASIR_EMAIL"),
@@ -51,6 +53,10 @@ func Load() (*Config, error) {
 
 	if cfg.AppEnv == "" {
 		cfg.AppEnv = "development"
+	}
+	
+	if cfg.CORSOrigins == "" {
+		cfg.CORSOrigins = "http://localhost:8080"
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -119,4 +125,15 @@ func (c *Config) DatabaseURL() string {
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName,
 	)
+}
+
+func (c *Config) AllowedOrigins() []string {
+	parts := strings.Split(c.CORSOrigins, ",")
+	origins := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			origins = append(origins, trimmed)
+		}
+	}
+	return origins
 }
