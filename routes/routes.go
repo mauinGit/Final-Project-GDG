@@ -4,16 +4,18 @@ import (
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
+
 	"FinalProjectBE/controllers"
 	"FinalProjectBE/middleware"
 	"FinalProjectBE/ws"
-	"golang.org/x/time/rate"
 )
 
 func SetupRouter(
 	authCtrl *controllers.AuthController,
 	orderCtrl *controllers.OrderController,
 	healthCtrl *controllers.HealthController,
+	menuCtrl *controllers.MenuController,
 	hub *ws.Hub,
 	jwtSecret string,
 	log *slog.Logger,
@@ -54,6 +56,13 @@ func SetupRouter(
 			protected.DELETE("/orders/:id", middleware.RequireRole("kasir"), orderCtrl.Cancel)
 
 			protected.PATCH("/orders/:id/status", middleware.RequireRole("koki"), orderCtrl.UpdateStatus)
+
+			protected.GET("/menu", menuCtrl.List)
+			protected.GET("/menu/:id", menuCtrl.GetByID)
+
+			protected.POST("/menu", middleware.RequireRole("kasir"), menuCtrl.Create)
+			protected.PATCH("/menu/:id", middleware.RequireRole("kasir"), menuCtrl.Update)
+			protected.DELETE("/menu/:id", middleware.RequireRole("kasir"), menuCtrl.Delete)
 		}
 	}
 

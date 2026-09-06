@@ -35,12 +35,13 @@ func main() {
 	}
 	defer pool.Close()
 
-	if err := database.RunMigrations(context.Background(), pool, "migrations/001_init_schema.sql"); err != nil {
+	if err := database.RunMigrations(context.Background(), pool, "migrations"); err != nil {
 		log.Fatalf("gagal migrasi: %v", err)
 	}
 
 	userRepo := repository.NewUserRepository(pool)
 	orderRepo := repository.NewOrderRepository(pool)
+	menuRepo := repository.NewMenuRepository(pool)
 
 	if err := database.SeedUsers(context.Background(), userRepo, cfg); err != nil {
 		log.Fatalf("gagal seeding user: %v", err)
@@ -51,12 +52,14 @@ func main() {
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	orderService := service.NewOrderService(orderRepo)
+	menuService := service.NewMenuService(menuRepo)
 
 	authCtrl := controllers.NewAuthController(authService)
 	orderCtrl := controllers.NewOrderController(orderService, hub)
 	healthCtrl := controllers.NewHealthController(pool)
+	menuCtrl := controllers.NewMenuController(menuService)
 
-	r := routes.SetupRouter(authCtrl, orderCtrl, healthCtrl, hub, cfg.JWTSecret, appLog, cfg.AllowedOrigins())
+	r := routes.SetupRouter(authCtrl, orderCtrl, healthCtrl, menuCtrl, hub, cfg.JWTSecret, appLog, cfg.AllowedOrigins())
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.AppPort,
